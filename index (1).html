@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Balance Hídrico — Cultivos sin riego</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --tierra:#4a3728; --campo:#2d5a27; --campo-claro:#3d7a35;
+    --agua:#1a6b8a; --agua-claro:#2590b8; --naranja:#d46b08;
+    --arena:#e8dcc8; --arena-claro:#f5f0e8; --blanco:#fafaf8;
+    --gris:#8a8a88; --gris-claro:#d0cec8; --ok:#27ae60; --bad:#c0392b;
+    --shadow:0 2px 12px rgba(74,55,40,0.12); --radius:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--arena-claro);color:var(--tierra);min-height:100vh;overflow-x:hidden}
+  header{background:var(--tierra);color:var(--arena);padding:14px 18px 10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  header h1{font-size:15px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+  header p{font-size:11px;opacity:.76;margin-top:3px;line-height:1.3}
+  .tabs{display:flex;background:var(--campo);overflow-x:auto;position:sticky;top:55px;z-index:99;box-shadow:0 2px 5px rgba(0,0,0,.15)}
+  .tab-btn{flex:0 0 auto;min-width:92px;padding:10px 8px;background:none;border:none;color:rgba(255,255,255,.68);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+  .tab-btn.active{color:#fff;border-bottom-color:#a8e063}
+  .panel{display:none}.panel.active{display:block}
+  .pad{padding:12px}.grid{display:grid;gap:10px}
+  .reg-header{background:var(--campo);color:#fff;padding:12px 14px;border-radius:var(--radius);margin-bottom:12px;box-shadow:var(--shadow)}
+  .reg-header h2{font-size:15px}.reg-header p{font-size:11px;opacity:.82;margin-top:3px;line-height:1.35}
+  .form-card,.card,.progress-card{background:var(--blanco);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px}
+  .form-card h4{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--campo);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--arena)}
+  .form-row{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+  .form-row label{font-size:12px;color:var(--tierra);width:126px;flex-shrink:0;font-weight:700}
+  .form-row input,.form-row select{flex:1;min-width:0;padding:8px 10px;border:1.5px solid var(--gris-claro);border-radius:6px;font-size:13px;background:var(--arena-claro);color:var(--tierra);outline:none}
+  .form-row input:focus,.form-row select:focus{border-color:var(--campo);background:#fff}
+  .hint{font-size:11px;color:var(--gris);line-height:1.45;margin:4px 0 10px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.2px;background:var(--arena);color:var(--tierra)}
+  .pill.ok{background:#e4f6eb;color:#1a9850}.pill.warn{background:#fff4e0;color:#9b5a00}.pill.bad{background:#fdecea;color:#c0392b}.pill.blue{background:#e6f3f8;color:#1a6b8a}
+  .btn{width:100%;padding:12px;border:none;border-radius:var(--radius);font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;cursor:pointer;margin-top:6px;color:#fff;background:var(--campo)}
+  .btn:active{filter:brightness(1.08)}.btn.secondary{background:var(--agua)}.btn.warn{background:var(--naranja)}.btn.bad{background:var(--bad)}.btn.soft{background:var(--arena);color:var(--tierra)}
+  .btn-inline{padding:8px 10px;border:none;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;color:#fff;background:var(--campo)}
+  .btn-inline.secondary{background:var(--agua)}.btn-inline.warn{background:var(--naranja)}.btn-inline.soft{background:var(--arena);color:var(--tierra)}.btn-inline.bad{background:var(--bad)}
+  .lote-list{padding:12px;display:grid;gap:10px}.lote-card{background:var(--blanco);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;border-left:5px solid var(--campo)}
+  .lote-card.warn{border-left-color:var(--naranja)}.lote-card.bad{border-left-color:var(--bad)}.lote-card.ok{border-left-color:var(--ok)}
+  .card-header{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#f8f6f2}
+  .lote-badge{width:38px;height:38px;border-radius:50%;background:var(--campo);color:#fff;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;text-align:center}
+  .lote-card.warn .lote-badge{background:var(--naranja)}.lote-card.bad .lote-badge{background:var(--bad)}.lote-card.ok .lote-badge{background:var(--ok)}
+  .card-title{flex:1;min-width:0}.card-title h3{font-size:14px;font-weight:800;color:var(--tierra);line-height:1.25}.card-title p{font-size:11px;color:var(--gris);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:9px 12px;border-top:1px solid var(--arena)}
+  .mini{background:var(--arena-claro);border-radius:8px;padding:7px;text-align:center}.mini .val{font-size:13px;font-weight:900}.mini .lbl{font-size:9px;color:var(--gris);text-transform:uppercase;margin-top:1px}
+  .card-actions{display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--arena)}
+  .card-actions button{padding:10px 5px;border:none;cursor:pointer;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.25px;color:#fff}.card-actions button:nth-child(1){background:var(--agua)}.card-actions button:nth-child(2){background:var(--campo)}.card-actions button:nth-child(3){background:var(--naranja)}
+  #panel-mapa{position:relative;padding:0}#map{width:100%;height:calc(100vh - 110px);min-height:520px}.leaflet-container{font-family:inherit}.leaflet-popup-content{font-size:13px;line-height:1.35}
+  .map-btn{position:absolute;left:10px;z-index:999;border:none;border-radius:8px;color:#fff;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  #gpsBtn{top:10px;background:var(--agua)}#fitBtn{top:50px;background:var(--campo)}#mapStateBtn{top:90px;background:var(--naranja)}#mapStateBtn.on{background:#0d4f6b}
+  .legend{display:none;position:absolute;top:130px;left:10px;z-index:999;background:rgba(255,255,255,.96);border-radius:8px;padding:8px 10px;box-shadow:0 2px 8px rgba(0,0,0,.28);font-size:10px}.legend.show{display:block}.legend .row{display:flex;gap:6px;align-items:center;margin-bottom:4px}.legend .dot{width:13px;height:13px;border-radius:3px;display:inline-block}
+  .status{font-size:12px;text-align:center;color:var(--gris);padding:8px;min-height:20px}.status.loading{color:#5a8f2a;font-weight:700}.status.error{color:var(--bad);font-weight:700}
+  .cards2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.cards3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+  .metric{background:var(--blanco);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px;text-align:center}.metric.full{grid-column:1/-1}.metric .val{font-size:25px;font-weight:900}.metric .lbl{font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;margin-top:3px}.metric .sub{font-size:10px;color:var(--gris);margin-top:2px}
+  .bar-wrap{height:14px;background:var(--arena);border-radius:7px;overflow:hidden;margin:10px 0 4px}.bar{height:100%;border-radius:7px;transition:width .4s ease}
+  .table{width:100%;border-collapse:collapse;font-size:11px;background:var(--blanco);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:10px}.table th{background:var(--agua);color:#fff;padding:8px 5px;font-size:9px;text-transform:uppercase}.table td{padding:8px 5px;border-bottom:1px solid var(--arena);text-align:center}.table tr:last-child td{border-bottom:none}.table .left{text-align:left}.table .total{background:#eef5f8;font-weight:900;color:var(--agua)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--tierra);color:var(--arena);padding:10px 18px;border-radius:20px;font-size:13px;font-weight:700;z-index:500;transition:transform .3s ease;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}.toast.show{transform:translateX(-50%) translateY(0)}
+  .search{width:100%;padding:10px 12px;border:1.5px solid var(--gris-claro);border-radius:var(--radius);background:#fff;font-size:13px;margin-bottom:10px;color:var(--tierra)}
+  .event-row{display:flex;justify-content:space-between;gap:8px;align-items:center;background:#fff;border-radius:8px;box-shadow:var(--shadow);padding:9px 10px;margin-bottom:7px;font-size:12px}
+  .okc{color:#1a9850}.warnc{color:#d46b08}.badc{color:#c0392b}.bluec{color:#1a6b8a}.muted{color:var(--gris)}
+
+  /* ──── NDVI / NDWI ──── */
+  #ndviMapBtn{top:130px;background:var(--campo)}#ndviMapBtn.on{background:#5a8f2a}.legend{top:170px}
+  .ndvi-map-panel{display:none;position:absolute;bottom:14px;left:10px;right:10px;max-width:390px;z-index:1000;background:rgba(255,255,255,.97);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.35);padding:12px 14px;backdrop-filter:blur(4px)}
+  .ndvi-map-panel.open{display:block}.ndvi-panel-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:900;color:var(--tierra);margin-bottom:10px}.ndvi-panel-head button{background:none;border:none;font-size:16px;cursor:pointer;color:var(--gris)}
+  .ndvi-warn{background:#fff4e0;color:#8a5a00;font-size:11px;padding:8px 9px;border-radius:7px;margin-bottom:10px;line-height:1.4;border:1px solid #f0d9a8}.ndvi-warn.hidden{display:none}
+  .ndvi-row{display:flex;align-items:center;gap:8px;margin-bottom:9px}.ndvi-row label{font-size:11px;font-weight:800;color:var(--tierra);width:82px;flex-shrink:0}.ndvi-row input[type="text"]{flex:1;min-width:0;padding:7px 9px;border:1.5px solid var(--gris-claro);border-radius:6px;font-size:12px;font-family:monospace;outline:none;color:var(--tierra);background:#fff}.ndvi-row input[type="range"]{flex:1;accent-color:var(--campo)}
+  .ndvi-toggles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:11px}.ndvi-toggle{padding:9px 4px;border:2px solid var(--arena);border-radius:8px;background:#fff;cursor:pointer;font-size:12px;font-weight:800;color:var(--tierra);line-height:1.25;transition:all .15s}.ndvi-toggle small{font-weight:600;font-size:9px;color:var(--gris)}.ndvi-toggle.active{border-color:var(--campo);background:#eef7e4}.ndvi-toggle.active small{color:var(--campo)}
+  .ndvi-info{font-size:10px;color:var(--gris);text-align:center;margin-bottom:8px;font-style:italic}.ndvi-legend{display:none}.ndvi-legend.show{display:block}.legend-bar{height:14px;border-radius:4px;margin-bottom:4px}.legend-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--gris)}
+  .ndvi-diff-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.ndvi-diff-cards:empty{display:none}.diff-card{background:var(--blanco);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;text-align:center}.diff-card .diff-val{font-size:22px;font-weight:900}.diff-card .diff-lbl{font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:.3px;margin-top:3px}.diff-card .diff-sub{font-size:10px;color:var(--gris);margin-top:2px}.diff-up{color:#1a9850}.diff-down{color:#c0392b}.diff-flat{color:var(--gris)}
+  .ndvi-table{width:100%;border-collapse:collapse;font-size:12px;background:var(--blanco);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:10px}.ndvi-table th{background:#5a8f2a;color:#fff;padding:8px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.3px}.ndvi-table td{padding:8px 6px;border-bottom:1px solid var(--arena);text-align:center}.ndvi-table tr:last-child td{border-bottom:none}
+
+  @media (max-width:420px){.form-row{align-items:flex-start;flex-direction:column;gap:4px}.form-row label{width:auto}.cards3{grid-template-columns:1fr 1fr}.card-meta{grid-template-columns:1fr 1fr}.tab-btn{min-width:86px;font-size:11px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🌾 Balance Hídrico — Cultivos sin riego</h1>
+  <p>Lotes importados desde KMZ · Balance diario por lluvia, ETc FAO-56 y agua útil disponible</p>
+</header>
+<div class="tabs">
+  <button class="tab-btn active" data-panel="lista" onclick="showPanel('lista', this)">📋 Lotes</button>
+  <button class="tab-btn" data-panel="mapa" onclick="showPanel('mapa', this)">🗺️ Mapa</button>
+  <button class="tab-btn" data-panel="ndvi" onclick="showPanel('ndvi', this)">📈 NDVI</button>
+  <button class="tab-btn" data-panel="balance" onclick="showPanel('balance', this)">🌾 Balance</button>
+  <button class="tab-btn" data-panel="pronostico" onclick="showPanel('pronostico', this)">📅 Pronóstico</button>
+  <button class="tab-btn" data-panel="datos" onclick="showPanel('datos', this)">✏️ Datos</button>
+  <button class="tab-btn" data-panel="resumen" onclick="showPanel('resumen', this)">📊 Resumen</button>
+</div>
+
+<div id="panel-lista" class="panel active">
+  <div class="lote-list">
+    <input class="search" id="loteSearch" placeholder="Buscar lote, campo o cultivo..." oninput="renderLista()">
+    <div id="loteList" class="grid"></div>
+  </div>
+</div>
+
+<div id="panel-mapa" class="panel">
+  <button class="map-btn" id="gpsBtn" onclick="centrarGPS()">📍 Mi ubicación</button>
+  <button class="map-btn" id="fitBtn" onclick="fitAll()">🧭 Ver lotes</button>
+  <button class="map-btn" id="mapStateBtn" onclick="toggleEstadoMapa()">💧 Estado</button>
+  <button class="map-btn" id="ndviMapBtn" onclick="toggleNdviPanel()">🛰️ NDVI</button>
+  <div class="legend" id="estadoLegend">
+    <div class="row"><span class="dot" style="background:#1a9850"></span> Bueno (≥60%)</div>
+    <div class="row"><span class="dot" style="background:#d46b08"></span> Medio / alerta</div>
+    <div class="row"><span class="dot" style="background:#c0392b"></span> Déficit</div>
+    <div class="row"><span class="dot" style="background:#9aa0a6"></span> Sin balance</div>
+  </div>
+  <div id="map"></div>
+
+  <div class="ndvi-map-panel" id="ndviPanel">
+    <div class="ndvi-panel-head">
+      <span>🛰️ Índices Sentinel-2</span>
+      <button onclick="toggleNdviPanel()">✖</button>
+    </div>
+    <div id="ndviConfigWarn" class="ndvi-warn">
+      ⚠️ Pegá tu <b>Instance ID</b> de Copernicus/Sentinel Hub para activar capas WMS. Las capas deben llamarse <b>NDVI</b> y <b>NDWI</b>.
+    </div>
+    <div class="ndvi-row">
+      <label>Instance ID</label>
+      <input type="text" id="ndviInstanceId" placeholder="ej. a1b2c3d4-..." onchange="guardarNdviInstanceId()">
+    </div>
+    <div class="ndvi-toggles">
+      <button class="ndvi-toggle" id="tgNdvi" onclick="setIndice('NDVI')">🌱 NDVI<br><small>Vegetación</small></button>
+      <button class="ndvi-toggle" id="tgNdwi" onclick="setIndice('NDWI')">💧 NDWI<br><small>Humedad/agua</small></button>
+      <button class="ndvi-toggle" id="tgOff" onclick="setIndice('OFF')">🚫 Apagar</button>
+    </div>
+    <div class="ndvi-row">
+      <label>Opacidad</label>
+      <input type="range" id="ndviOpacity" min="0" max="100" value="75" oninput="setNdviOpacidad(this.value)">
+      <span id="ndviOpacityVal" style="font-size:11px;width:34px;text-align:right">75%</span>
+    </div>
+    <div class="ndvi-row">
+      <label>Nubes máx</label>
+      <input type="range" id="ndviCloud" min="0" max="100" value="20" oninput="setNdviNubes(this.value)">
+      <span id="ndviCloudVal" style="font-size:11px;width:34px;text-align:right">20%</span>
+    </div>
+    <div class="ndvi-info" id="ndviInfo">Imagen más reciente · últimos 30 días</div>
+    <div class="ndvi-legend" id="ndviLegend"></div>
+  </div>
+</div>
+
+
+<div id="panel-ndvi" class="panel">
+  <div class="pad">
+    <div class="reg-header" style="background:#5a8f2a">
+      <h2>Diferencial de NDVI por lote</h2>
+      <p>Serie temporal Sentinel-2: NDVI actual vs. imagen anterior y promedio del período. Usa los polígonos reales importados desde el KMZ.</p>
+    </div>
+
+    <div class="form-card" id="oauthCardNdvi">
+      <h4>🔗 Proxy de datos Copernicus</h4>
+      <p class="hint">Pegá la URL de tu Worker de Cloudflare. Las credenciales de Copernicus quedan guardadas en el Worker; el HTML solo consulta ese proxy.</p>
+      <div class="form-row"><label>URL del Worker</label><input type="text" id="workerUrlNdvi" placeholder="https://...workers.dev" style="font-family:monospace;font-size:11px"></div>
+      <button class="btn" style="background:#5a8f2a" onclick="guardarWorkerUrlNdvi()">💾 Guardar URL</button>
+    </div>
+
+    <div class="form-card">
+      <h4>📊 Consulta</h4>
+      <div class="form-row">
+        <label>Lote</label>
+        <select id="ndviLote">
+          <option value="ALL">— Todos los lotes —</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Período</label>
+        <select id="ndviPeriodo">
+          <option value="90">Últimos 3 meses</option>
+          <option value="180" selected>Últimos 6 meses</option>
+          <option value="365">Último año</option>
+        </select>
+      </div>
+      <div class="form-row" style="flex-direction:row;align-items:center">
+        <label>Nubes máx</label>
+        <input type="range" id="ndviCloudTemporal" min="0" max="100" value="30" oninput="document.getElementById('ndviCloudTemporalVal').textContent=this.value+'%'" style="accent-color:#5a8f2a">
+        <span id="ndviCloudTemporalVal" style="font-size:11px;width:36px;text-align:right">30%</span>
+      </div>
+      <button class="btn" style="background:#5a8f2a" onclick="consultarNdviTemporal()">📈 Generar gráfico</button>
+      <p class="hint">Para muchos lotes la consulta puede demorar, porque se procesa cada polígono por separado.</p>
+    </div>
+
+    <div id="ndviStatus" class="status"></div>
+    <div id="ndviDiffCards" class="ndvi-diff-cards"></div>
+
+    <div class="form-card" id="ndviChartCard" style="display:none">
+      <h4 id="ndviChartTitle">Evolución NDVI</h4>
+      <div style="position:relative;height:300px"><canvas id="ndviChart"></canvas></div>
+    </div>
+
+    <button class="btn secondary" id="ndviExportBtn" onclick="exportarNdviCSV()" style="display:none">📤 Exportar serie NDVI CSV</button>
+  </div>
+</div>
+
+<div id="panel-balance" class="panel">
+  <div class="pad">
+    <div class="reg-header">
+      <h2>Balance hídrico diario sin riego</h2>
+      <p>AU(t) = AU(t−1) + lluvia − ETc. ETc se calcula como ET0 × Kc por etapa del cultivo.</p>
+    </div>
+    <div class="form-card">
+      <h4>🌾 Lote</h4>
+      <div class="form-row"><label>Lote</label><select id="balLote" onchange="cargarInfoBalance()"></select></div>
+      <button class="btn" onclick="calcularBalance()">🌾 Calcular balance</button>
+      <button class="btn soft" onclick="irDatosDesdeSelect('balLote')">✏️ Configurar lote</button>
+      <p id="balInfo" class="hint"></p>
+    </div>
+    <div id="balStatus" class="status"></div>
+    <div id="balResumen"></div>
+    <div class="form-card" id="balChartCard" style="display:none">
+      <h4 id="balChartTitle">Balance hídrico</h4>
+      <div style="position:relative;height:310px"><canvas id="balChart"></canvas></div>
+    </div>
+    <div id="balTablaWrap"></div>
+    <button class="btn secondary" id="balExportBtn" style="display:none" onclick="exportarBalanceCSV()">📤 Exportar balance CSV</button>
+  </div>
+</div>
+
+<div id="panel-pronostico" class="panel">
+  <div class="pad">
+    <div class="reg-header" style="background:#6a3d9a">
+      <h2>Pronóstico 14 días</h2>
+      <p>Alertas climáticas y proyección de agua útil sin riego: lluvia pronosticada, ET0, DPV, viento y heladas.</p>
+    </div>
+    <div class="form-card">
+      <h4>📅 Lote</h4>
+      <div class="form-row"><label>Lote</label><select id="pronLote"></select></div>
+      <button class="btn" style="background:#6a3d9a" onclick="calcularPronostico()">📅 Generar pronóstico</button>
+    </div>
+    <div id="pronStatus" class="status"></div>
+    <div id="pronReco" style="margin-bottom:10px"></div>
+    <div id="pronAlertas"></div>
+    <div id="pronLista" style="margin-top:8px"></div>
+    <div class="form-card" style="background:#f5f0fa">
+      <p class="hint" style="margin:0;color:var(--tierra)"><b>ℹ️ Lectura agronómica:</b> en secano no se carga riego. Si el AU proyectado cae por debajo del umbral, la app lo marca como riesgo de estrés hídrico y estima el déficit a capacidad de campo.</p>
+    </div>
+  </div>
+</div>
+
+<div id="panel-datos" class="panel">
+  <div class="pad">
+    <div class="reg-header">
+      <h2>Datos del lote</h2>
+      <p>Configuración inicial del balance: cultivo, siembra, agua útil inicial, capacidad máxima y lluvias manuales.</p>
+    </div>
+    <div class="form-card">
+      <h4>🌾 Configuración</h4>
+      <div class="form-row"><label>Lote</label><select id="datosLote" onchange="cargarDatosLote()"></select></div>
+      <div id="datosMeta" class="hint"></div>
+      <div class="form-row"><label>Cultivo</label><select id="datosCultivo"></select></div>
+      <div class="form-row"><label>Fecha siembra</label><input type="date" id="datosSiembra"></div>
+      <div class="form-row"><label>Fecha AU inicial</label><input type="date" id="datosFechaAu"></div>
+      <div class="form-row"><label>AU inicial (mm)</label><input type="number" step="1" id="datosAuInicial" placeholder="Ej. 180"></div>
+      <div class="form-row"><label>AU máxima (mm)</label><input type="number" step="1" id="datosAuMax" placeholder="Ej. 360"></div>
+      <div class="form-row"><label>Umbral estrés (%)</label><input type="number" step="1" min="5" max="95" id="datosUmbral" placeholder="Ej. 40"></div>
+      <div class="form-row" style="flex-direction:row;align-items:center"><label>Lluvia automática</label><input type="checkbox" id="datosLluviaAuto" style="width:20px;height:20px;flex:0 0 auto"><span class="hint" style="margin:0">Open-Meteo</span></div>
+      <button class="btn" onclick="guardarDatosLote()">💾 Guardar configuración</button>
+    </div>
+
+    <div class="form-card">
+      <h4>🌧️ Lluvias manuales / pluviómetro</h4>
+      <p class="hint">Si desactivás la lluvia automática, estas lluvias se usan como entrada del balance. Con lluvia automática activa, se ignoran para evitar duplicar milímetros.</p>
+      <div class="form-row"><label>Fecha</label><input type="date" id="lluviaFecha"></div>
+      <div class="form-row"><label>Lluvia (mm)</label><input type="number" step="0.5" id="lluviaMm" placeholder="0.0"></div>
+      <button class="btn secondary" onclick="agregarLluviaManual()">+ Agregar lluvia</button>
+      <div id="lluviasList" style="margin-top:10px"></div>
+    </div>
+
+    <div class="form-card">
+      <h4 onclick="toggleCultParams()" style="cursor:pointer;display:flex;justify-content:space-between"><span>⚙️ Coeficientes Kc por cultivo</span><span id="cultArrow">▼</span></h4>
+      <div id="cultBody" style="display:none">
+        <div class="form-row"><label>Cultivo</label><select id="cultEditSel" onchange="editarCultivo(this.value)"></select></div>
+        <p class="hint"><b>Kc:</b> inicial / medio / final</p>
+        <div class="form-row" style="gap:6px;flex-direction:row">
+          <input type="number" step="0.01" id="cKcIni" style="text-align:center">
+          <input type="number" step="0.01" id="cKcMed" style="text-align:center">
+          <input type="number" step="0.01" id="cKcFin" style="text-align:center">
+        </div>
+        <p class="hint"><b>Etapas:</b> inicial / desarrollo / media / final (días)</p>
+        <div class="form-row" style="gap:5px;flex-direction:row">
+          <input type="number" id="cEtIni" style="text-align:center">
+          <input type="number" id="cEtDes" style="text-align:center">
+          <input type="number" id="cEtMed" style="text-align:center">
+          <input type="number" id="cEtFin" style="text-align:center">
+        </div>
+        <button class="btn secondary" onclick="guardarCultivo()">💾 Guardar Kc</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="panel-resumen" class="panel">
+  <div class="pad">
+    <div class="progress-card" style="text-align:center">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--gris);letter-spacing:.5px;margin-bottom:6px">Configuración de lotes</div>
+      <div style="font-size:36px;font-weight:900;color:var(--campo)" id="resPct">0%</div>
+      <div style="font-size:12px;color:var(--gris)" id="resSub">0 de 0 lotes configurados</div>
+      <div class="bar-wrap"><div class="bar" id="resBar" style="width:0%;background:linear-gradient(90deg,var(--campo),#a8e063)"></div></div>
+    </div>
+    <div class="cards3">
+      <div class="metric"><div class="val" id="sumLotes">0</div><div class="lbl">Lotes</div></div>
+      <div class="metric"><div class="val okc" id="sumConfig">0</div><div class="lbl">Configurados</div></div>
+      <div class="metric"><div class="val bluec" id="sumHa">0</div><div class="lbl">Hectáreas</div></div>
+    </div>
+    <div class="form-card">
+      <h4>💧 Estado hídrico</h4>
+      <button class="btn secondary" onclick="actualizarTodos()">🔄 Actualizar balance de todos</button>
+      <div id="todosStatus" class="status"></div>
+      <div id="estadoLista"></div>
+    </div>
+    <button class="btn secondary" onclick="exportarConfigCSV()">📤 Exportar configuración CSV</button>
+    <button class="btn" onclick="exportarGeoJSON()">🗺️ Exportar GeoJSON de lotes</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const LOTES = [{"id":1,"nombre":"MALDONADO LOTE 1 SOJA","campo":"MALDONADO","cultivoDefault":"soja","areaHa":179.2,"centro":{"lat":-31.5226554,"lon":-63.9124477},"poligono":[[-31.5160413,-63.9200467],[-31.5271572,-63.9201051],[-31.5292893,-63.9047808],[-31.5180903,-63.904886],[-31.5160413,-63.9200467]],"coordsKml":[[-63.9200467,-31.5160413],[-63.9201051,-31.5271572],[-63.9047808,-31.5292893],[-63.904886,-31.5180903],[-63.9200467,-31.5160413]]},{"id":2,"nombre":"PAGIOTTA LOTE 1","campo":"PAGIOTTA","cultivoDefault":"soja","areaHa":61.73,"centro":{"lat":-31.6415594,"lon":-64.1177602},"poligono":[[-31.6482279,-64.1200566],[-31.6480931,-64.1155738],[-31.6349191,-64.1155144],[-31.6348768,-64.1198754],[-31.6482279,-64.1200566]],"coordsKml":[[-64.1200566,-31.6482279],[-64.1155738,-31.6480931],[-64.1155144,-31.6349191],[-64.1198754,-31.6348768],[-64.1200566,-31.6482279]]},{"id":3,"nombre":"PAGIOTTA LOTE 3","campo":"PAGIOTTA","cultivoDefault":"soja","areaHa":66.79,"centro":{"lat":-31.6303546,"lon":-64.1338295},"poligono":[[-31.6371877,-64.1360819],[-31.6381892,-64.1317044],[-31.62336,-64.1316706],[-31.6224703,-64.1358663],[-31.6371877,-64.1360819]],"coordsKml":[[-64.1360819,-31.6371877],[-64.1317044,-31.6381892],[-64.1316706,-31.62336],[-64.1358663,-31.6224703],[-64.1360819,-31.6371877]]},{"id":4,"nombre":"PEPO LOTE 2-3","campo":"PEPO","cultivoDefault":"soja","areaHa":100.71,"centro":{"lat":-31.6336055,"lon":-64.1116658},"poligono":[[-31.6396737,-64.1154688],[-31.6395994,-64.1130251],[-31.640169,-64.1100288],[-31.6398223,-64.1098542],[-31.6398223,-64.1090397],[-31.6406643,-64.1090688],[-31.64059,-64.1080506],[-31.6285787,-64.1074691],[-31.6283806,-64.1106396],[-31.6270927,-64.1104942],[-31.6266218,-64.1153809],[-31.6396737,-64.1154688]],"coordsKml":[[-64.1154688,-31.6396737],[-64.1130251,-31.6395994],[-64.1100288,-31.640169],[-64.1098542,-31.6398223],[-64.1090397,-31.6398223],[-64.1090688,-31.6406643],[-64.1080506,-31.64059],[-64.1074691,-31.6285787],[-64.1106396,-31.6283806],[-64.1104942,-31.6270927],[-64.1153809,-31.6266218],[-64.1154688,-31.6396737]]},{"id":5,"nombre":"RINCON LOTE 1","campo":"RINCON","cultivoDefault":"soja","areaHa":91.54,"centro":{"lat":-31.5729825,"lon":-63.6727453},"poligono":[[-31.5771641,-63.6768361],[-31.5789831,-63.6711805],[-31.5784168,-63.671124],[-31.578437,-63.6683239],[-31.5696993,-63.6683666],[-31.5697645,-63.6703976],[-31.5706398,-63.6702251],[-31.5706874,-63.6712394],[-31.5660725,-63.6712705],[-31.5669534,-63.6740556],[-31.5677532,-63.6768931],[-31.5771641,-63.6768361]],"coordsKml":[[-63.6768361,-31.5771641],[-63.6711805,-31.5789831],[-63.671124,-31.5784168],[-63.6683239,-31.578437],[-63.6683666,-31.5696993],[-63.6703976,-31.5697645],[-63.6702251,-31.5706398],[-63.6712394,-31.5706874],[-63.6712705,-31.5660725],[-63.6740556,-31.5669534],[-63.6768931,-31.5677532],[-63.6768361,-31.5771641]]},{"id":6,"nombre":"COCO LOTE 1","campo":"COCO","cultivoDefault":"soja","areaHa":43.37,"centro":{"lat":-31.6475806,"lon":-63.9935633},"poligono":[[-31.6450314,-63.9976082],[-31.6489286,-63.9978419],[-31.6489855,-63.9974385],[-31.6505719,-63.997259],[-31.6503366,-63.9951104],[-31.6500939,-63.9950558],[-31.6498793,-63.995078],[-31.6497856,-63.9946944],[-31.6500185,-63.9941569],[-31.6498874,-63.9937515],[-31.6494766,-63.9935875],[-31.6494292,-63.9926886],[-31.6498863,-63.9925455],[-31.6497537,-63.9904298],[-31.6492775,-63.9901015],[-31.6490695,-63.9872513],[-31.6448458,-63.99162],[-31.6450314,-63.9976082]],"coordsKml":[[-63.9976082,-31.6450314],[-63.9978419,-31.6489286],[-63.9974385,-31.6489855],[-63.997259,-31.6505719],[-63.9951104,-31.6503366],[-63.9950558,-31.6500939],[-63.995078,-31.6498793],[-63.9946944,-31.6497856],[-63.9941569,-31.6500185],[-63.9937515,-31.6498874],[-63.9935875,-31.6494766],[-63.9926886,-31.6494292],[-63.9925455,-31.6498863],[-63.9904298,-31.6497537],[-63.9901015,-31.6492775],[-63.9872513,-31.6490695],[-63.99162,-31.6448458],[-63.9976082,-31.6450314]]},{"id":7,"nombre":"COCO LOTE 2","campo":"COCO","cultivoDefault":"soja","areaHa":59.12,"centro":{"lat":-31.6488344,"lon":-64.0076075},"poligono":[[-31.6455213,-64.0117754],[-31.6538797,-64.0108332],[-31.6522812,-64.0062185],[-31.6509054,-64.0062568],[-31.6508091,-64.0032078],[-31.6452443,-64.0031591],[-31.6455213,-64.0117754]],"coordsKml":[[-64.0117754,-31.6455213],[-64.0108332,-31.6538797],[-64.0062185,-31.6522812],[-64.0062568,-31.6509054],[-64.0032078,-31.6508091],[-64.0031591,-31.6452443],[-64.0117754,-31.6455213]]},{"id":8,"nombre":"COSME","campo":"COSME","cultivoDefault":"soja","areaHa":46.89,"centro":{"lat":-31.7884418,"lon":-64.090938},"poligono":[[-31.7805473,-64.0923788],[-31.7968685,-64.0922287],[-31.7964493,-64.0895586],[-31.780153,-64.0895821],[-31.7805473,-64.0923788]],"coordsKml":[[-64.0923788,-31.7805473],[-64.0922287,-31.7968685],[-64.0895586,-31.7964493],[-64.0895821,-31.780153],[-64.0923788,-31.7805473]]},{"id":9,"nombre":"COSTA SACATE LOTE 1","campo":"COSTA SACATE","cultivoDefault":"soja","areaHa":29.06,"centro":{"lat":-31.6476144,"lon":-63.7363857},"poligono":[[-31.6482888,-63.7431167],[-31.6496923,-63.7430608],[-31.6487763,-63.7359017],[-31.655154,-63.7358431],[-31.6518314,-63.7357632],[-31.6515501,-63.7354039],[-31.6484295,-63.7359188],[-31.6472873,-63.7304493],[-31.6448347,-63.7310409],[-31.6482888,-63.7431167]],"coordsKml":[[-63.7431167,-31.6482888],[-63.7430608,-31.6496923],[-63.7359017,-31.6487763],[-63.7358431,-31.655154],[-63.7357632,-31.6518314],[-63.7354039,-31.6515501],[-63.7359188,-31.6484295],[-63.7304493,-31.6472873],[-63.7310409,-31.6448347],[-63.7431167,-31.6482888]]},{"id":10,"nombre":"COSTA SACATE LOTE 2 RIEGO","campo":"COSTA SACATE","cultivoDefault":"soja","areaHa":86.34,"centro":{"lat":-31.6548744,"lon":-63.7392782},"poligono":[[-31.6606076,-63.7431128],[-31.6594905,-63.7346021],[-31.6578471,-63.7345934],[-31.6562915,-63.7349666],[-31.6562346,-63.7358071],[-31.6552609,-63.7358896],[-31.6487834,-63.735902],[-31.6497674,-63.7430465],[-31.6606076,-63.7431128]],"coordsKml":[[-63.7431128,-31.6606076],[-63.7346021,-31.6594905],[-63.7345934,-31.6578471],[-63.7349666,-31.6562915],[-63.7358071,-31.6562346],[-63.7358896,-31.6552609],[-63.735902,-31.6487834],[-63.7430465,-31.6497674],[-63.7431128,-31.6606076]]},{"id":11,"nombre":"COSTA SACATE LOTE 3 RIEGO","campo":"COSTA SACATE","cultivoDefault":"soja","areaHa":69.57,"centro":{"lat":-31.6535491,"lon":-63.7319854},"poligono":[[-31.6594222,-63.7337624],[-31.6593341,-63.7328621],[-31.6591844,-63.7313719],[-31.6587704,-63.7279053],[-31.6473822,-63.7303968],[-31.6484512,-63.7359417],[-31.6560687,-63.7344862],[-31.6562777,-63.7344142],[-31.6594222,-63.7337624]],"coordsKml":[[-63.7337624,-31.6594222],[-63.7328621,-31.6593341],[-63.7313719,-31.6591844],[-63.7279053,-31.6587704],[-63.7303968,-31.6473822],[-63.7359417,-31.6484512],[-63.7344862,-31.6560687],[-63.7344142,-31.6562777],[-63.7337624,-31.6594222]]},{"id":12,"nombre":"COSTA SACATE LOTE 6","campo":"COSTA SACATE","cultivoDefault":"soja","areaHa":60.33,"centro":{"lat":-31.6581778,"lon":-63.7490763},"poligono":[[-31.6606646,-63.7548794],[-31.6606249,-63.7432733],[-31.655728,-63.7432266],[-31.6556995,-63.7548724],[-31.6606646,-63.7548794]],"coordsKml":[[-63.7548794,-31.6606646],[-63.7432733,-31.6606249],[-63.7432266,-31.655728],[-63.7548724,-31.6556995],[-63.7548794,-31.6606646]]},{"id":13,"nombre":"CST L8","campo":"CST","cultivoDefault":"soja","areaHa":55.28,"centro":{"lat":-31.6629748,"lon":-63.7305408},"poligono":[[-31.6666618,-63.7342117],[-31.6662509,-63.7262012],[-31.6588482,-63.7277737],[-31.659645,-63.7342032],[-31.6666618,-63.7342117]],"coordsKml":[[-63.7342117,-31.6666618],[-63.7262012,-31.6662509],[-63.7277737,-31.6588482],[-63.7342032,-31.659645],[-63.7342117,-31.6666618]]},{"id":14,"nombre":"GRANJA LOTE 2","campo":"GRANJA","cultivoDefault":"soja","areaHa":111.4,"centro":{"lat":-31.5630848,"lon":-63.8075004},"poligono":[[-31.5697697,-63.8037549],[-31.5549263,-63.8036353],[-31.5549688,-63.8074711],[-31.5575561,-63.8075443],[-31.5575131,-63.8099084],[-31.5601179,-63.8099248],[-31.5600969,-63.8123696],[-31.5694639,-63.8118265],[-31.5697697,-63.8037549]],"coordsKml":[[-63.8037549,-31.5697697],[-63.8036353,-31.5549263],[-63.8074711,-31.5549688],[-63.8075443,-31.5575561],[-63.8099084,-31.5575131],[-63.8099248,-31.5601179],[-63.8123696,-31.5600969],[-63.8118265,-31.5694639],[-63.8037549,-31.5697697]]},{"id":15,"nombre":"LOZADA LOTE 2","campo":"LOZADA","cultivoDefault":"soja","areaHa":250.92,"centro":{"lat":-31.6582167,"lon":-64.0414158},"poligono":[[-31.6602303,-64.0451508],[-31.6716816,-64.0364126],[-31.6671672,-64.0293676],[-31.6467957,-64.0443466],[-31.6469785,-64.0494229],[-31.6471788,-64.0546156],[-31.6537066,-64.0499865],[-31.6602303,-64.0451508]],"coordsKml":[[-64.0451508,-31.6602303],[-64.0364126,-31.6716816],[-64.0293676,-31.6671672],[-64.0443466,-31.6467957],[-64.0494229,-31.6469785],[-64.0546156,-31.6471788],[-64.0499865,-31.6537066],[-64.0451508,-31.6602303]]},{"id":16,"nombre":"LOZADA LOTE 3","campo":"LOZADA","cultivoDefault":"soja","areaHa":53.91,"centro":{"lat":-31.6723029,"lon":-64.0313681},"poligono":[[-31.6778684,-64.031849],[-31.6756854,-64.0301156],[-31.6713513,-64.0265357],[-31.6676298,-64.0294038],[-31.6714837,-64.036604],[-31.6778684,-64.031849]],"coordsKml":[[-64.031849,-31.6778684],[-64.0301156,-31.6756854],[-64.0265357,-31.6713513],[-64.0294038,-31.6676298],[-64.036604,-31.6714837],[-64.031849,-31.6778684]]},{"id":17,"nombre":"MELLADO LOTE 1","campo":"MELLADO","cultivoDefault":"soja","areaHa":106.92,"centro":{"lat":-31.5404041,"lon":-63.9474788},"poligono":[[-31.548426,-63.9441072],[-31.5482827,-63.9433213],[-31.537043,-63.9413314],[-31.5359196,-63.9505405],[-31.5350974,-63.9506017],[-31.5355794,-63.9541024],[-31.5362267,-63.9557678],[-31.5364208,-63.9566726],[-31.548426,-63.9441072]],"coordsKml":[[-63.9441072,-31.548426],[-63.9433213,-31.5482827],[-63.9413314,-31.537043],[-63.9505405,-31.5359196],[-63.9506017,-31.5350974],[-63.9541024,-31.5355794],[-63.9557678,-31.5362267],[-63.9566726,-31.5364208],[-63.9441072,-31.548426]]},{"id":18,"nombre":"COSTA SACATE LOTE 5 RIEGO","campo":"COSTA SACATE","cultivoDefault":"soja","areaHa":80.37,"centro":{"lat":-31.664414,"lon":-63.7386058},"poligono":[[-31.6689204,-63.7430695],[-31.6685269,-63.7341895],[-31.6595866,-63.7342751],[-31.6606281,-63.7431124],[-31.6689204,-63.7430695]],"coordsKml":[[-63.7430695,-31.6689204],[-63.7341895,-31.6685269],[-63.7342751,-31.6595866],[-63.7431124,-31.6606281],[-63.7430695,-31.6689204]]},{"id":19,"nombre":"GAIDO","campo":"GAIDO","cultivoDefault":"soja","areaHa":128.05,"centro":{"lat":-31.6197183,"lon":-63.973987},"poligono":[[-31.6210861,-63.9654503],[-31.6124365,-63.974763],[-31.6182825,-63.9823987],[-31.6270013,-63.9734734],[-31.6210861,-63.9654503]],"coordsKml":[[-63.9654503,-31.6210861],[-63.974763,-31.6124365],[-63.9823987,-31.6182825],[-63.9734734,-31.6270013],[-63.9654503,-31.6210861]]},{"id":20,"nombre":"GRANJA LOTE 1","campo":"GRANJA","cultivoDefault":"soja","areaHa":79.22,"centro":{"lat":-31.5744113,"lon":-63.8077112},"poligono":[[-31.5788484,-63.8037585],[-31.5697768,-63.8037403],[-31.569485,-63.8118385],[-31.5797926,-63.8111611],[-31.5788484,-63.8037585]],"coordsKml":[[-63.8037585,-31.5788484],[-63.8037403,-31.5697768],[-63.8118385,-31.569485],[-63.8111611,-31.5797926],[-63.8037585,-31.5788484]]},{"id":21,"nombre":"GRANJA LOTE 3","campo":"GRANJA","cultivoDefault":"soja","areaHa":72.06,"centro":{"lat":-31.5520896,"lon":-63.808017},"poligono":[[-31.5541632,-63.8075437],[-31.5540973,-63.8036405],[-31.548003,-63.8035695],[-31.5471808,-63.8035724],[-31.5470582,-63.8103982],[-31.5504043,-63.8099387],[-31.5534418,-63.8127147],[-31.5574721,-63.8125329],[-31.5575383,-63.8075379],[-31.5541632,-63.8075437]],"coordsKml":[[-63.8075437,-31.5541632],[-63.8036405,-31.5540973],[-63.8035695,-31.548003],[-63.8035724,-31.5471808],[-63.8103982,-31.5470582],[-63.8099387,-31.5504043],[-63.8127147,-31.5534418],[-63.8125329,-31.5574721],[-63.8075379,-31.5575383],[-63.8075437,-31.5541632]]},{"id":22,"nombre":"GURGO","campo":"GURGO","cultivoDefault":"soja","areaHa":84.51,"centro":{"lat":-31.5296653,"lon":-63.8850116},"poligono":[[-31.5323019,-63.8882833],[-31.5328169,-63.8866479],[-31.5380249,-63.8866172],[-31.536609,-63.8821328],[-31.522886,-63.882176],[-31.5228923,-63.8881963],[-31.5323019,-63.8882833]],"coordsKml":[[-63.8882833,-31.5323019],[-63.8866479,-31.5328169],[-63.8866172,-31.5380249],[-63.8821328,-31.536609],[-63.882176,-31.522886],[-63.8881963,-31.5228923],[-63.8882833,-31.5323019]]},{"id":23,"nombre":"LOZADA LOTE 1","campo":"LOZADA","cultivoDefault":"soja","areaHa":191.34,"centro":{"lat":-31.6532075,"lon":-64.0311015},"poligono":[[-31.6529138,-64.0359886],[-31.6545796,-64.0387042],[-31.6618312,-64.033168],[-31.6578576,-64.0226203],[-31.646066,-64.0264442],[-31.646742,-64.0406281],[-31.6529138,-64.0359886]],"coordsKml":[[-64.0359886,-31.6529138],[-64.0387042,-31.6545796],[-64.033168,-31.6618312],[-64.0226203,-31.6578576],[-64.0264442,-31.646066],[-64.0406281,-31.646742],[-64.0359886,-31.6529138]]},{"id":24,"nombre":"MALETTO","campo":"MALETTO","cultivoDefault":"soja","areaHa":102.18,"centro":{"lat":-31.6633512,"lon":-63.7215796},"poligono":[[-31.6689865,-63.7255681],[-31.6666778,-63.7152509],[-31.6584752,-63.7171802],[-31.6591292,-63.727702],[-31.6689865,-63.7255681]],"coordsKml":[[-63.7255681,-31.6689865],[-63.7152509,-31.6666778],[-63.7171802,-31.6584752],[-63.727702,-31.6591292],[-63.7255681,-31.6689865]]},{"id":25,"nombre":"MELLADO LOTE 2","campo":"MELLADO","cultivoDefault":"soja","areaHa":81.35,"centro":{"lat":-31.5040236,"lon":-63.9510786},"poligono":[[-31.5116985,-63.9538625],[-31.5112758,-63.9500123],[-31.5114779,-63.9486071],[-31.4944861,-63.948481],[-31.4944368,-63.9497725],[-31.4975065,-63.9497857],[-31.4972718,-63.9536834],[-31.5116985,-63.9538625]],"coordsKml":[[-63.9538625,-31.5116985],[-63.9500123,-31.5112758],[-63.9486071,-31.5114779],[-63.948481,-31.4944861],[-63.9497725,-31.4944368],[-63.9497857,-31.4975065],[-63.9536834,-31.4972718],[-63.9538625,-31.5116985]]},{"id":26,"nombre":"MELLADO LOTE 3","campo":"MELLADO","cultivoDefault":"soja","areaHa":27.87,"centro":{"lat":-31.4838674,"lon":-63.9517475},"poligono":[[-31.4825111,-63.9521716],[-31.4824515,-63.9534748],[-31.4882695,-63.9535178],[-31.4885572,-63.949666],[-31.485727,-63.9496868],[-31.4855034,-63.9509395],[-31.475865,-63.9509207],[-31.4762918,-63.9520984],[-31.4825111,-63.9521716]],"coordsKml":[[-63.9521716,-31.4825111],[-63.9534748,-31.4824515],[-63.9535178,-31.4882695],[-63.949666,-31.4885572],[-63.9496868,-31.485727],[-63.9509395,-31.4855034],[-63.9509207,-31.475865],[-63.9520984,-31.4762918],[-63.9521716,-31.4825111]]},{"id":27,"nombre":"MELLADO LOTE 4","campo":"MELLADO","cultivoDefault":"soja","areaHa":21.81,"centro":{"lat":-31.4977577,"lon":-63.9276445},"poligono":[[-31.4959903,-63.9298305],[-31.500072,-63.9299755],[-31.5002805,-63.9256309],[-31.4946806,-63.9255969],[-31.4958901,-63.9294619],[-31.4959903,-63.9298305]],"coordsKml":[[-63.9298305,-31.4959903],[-63.9299755,-31.500072],[-63.9256309,-31.5002805],[-63.9255969,-31.4946806],[-63.9294619,-31.4958901],[-63.9298305,-31.4959903]]},{"id":28,"nombre":"MELLADO LOTE 5","campo":"MELLADO","cultivoDefault":"soja","areaHa":49.37,"centro":{"lat":-31.5147814,"lon":-63.9021644},"poligono":[[-31.5093863,-63.9014631],[-31.5087729,-63.9048367],[-31.5180452,-63.904859],[-31.5199204,-63.898058],[-31.5167087,-63.8980397],[-31.5167236,-63.8999897],[-31.5130935,-63.8999988],[-31.5127456,-63.9014721],[-31.5093863,-63.9014631]],"coordsKml":[[-63.9014631,-31.5093863],[-63.9048367,-31.5087729],[-63.904859,-31.5180452],[-63.898058,-31.5199204],[-63.8980397,-31.5167087],[-63.8999897,-31.5167236],[-63.8999988,-31.5130935],[-63.9014721,-31.5127456],[-63.9014631,-31.5093863]]},{"id":29,"nombre":"PAGIOTTA LOTE 2","campo":"PAGIOTTA","cultivoDefault":"soja","areaHa":39.09,"centro":{"lat":-31.630469,"lon":-64.1176416},"poligono":[[-31.6347537,-64.1197911],[-31.6348083,-64.1154828],[-31.6264749,-64.1154471],[-31.625844,-64.1197491],[-31.6347537,-64.1197911]],"coordsKml":[[-64.1197911,-31.6347537],[-64.1154828,-31.6348083],[-64.1154471,-31.6264749],[-64.1197491,-31.625844],[-64.1197911,-31.6347537]]},{"id":30,"nombre":"PEPO LOTE 1","campo":"PEPO","cultivoDefault":"soja","areaHa":44.31,"centro":{"lat":-31.644157,"lon":-64.109844},"poligono":[[-31.6476123,-64.1130027],[-31.6475808,-64.1102507],[-31.6453344,-64.1100616],[-31.6477098,-64.1070464],[-31.6462981,-64.1046334],[-31.6418046,-64.1079496],[-31.642061,-64.1096837],[-31.6402959,-64.1096832],[-31.6397496,-64.1130756],[-31.6476123,-64.1130027]],"coordsKml":[[-64.1130027,-31.6476123],[-64.1102507,-31.6475808],[-64.1100616,-31.6453344],[-64.1070464,-31.6477098],[-64.1046334,-31.6462981],[-64.1079496,-31.6418046],[-64.1096837,-31.642061],[-64.1096832,-31.6402959],[-64.1130756,-31.6397496],[-64.1130027,-31.6476123]]},{"id":31,"nombre":"RINCON LOTE 2","campo":"RINCON","cultivoDefault":"soja","areaHa":103.05,"centro":{"lat":-31.5616662,"lon":-63.6729461},"poligono":[[-31.5537126,-63.6769183],[-31.5677355,-63.6768984],[-31.5677355,-63.6768959],[-31.5658146,-63.6708507],[-31.5697169,-63.6707063],[-31.5696896,-63.6683802],[-31.5592409,-63.668403],[-31.560409,-63.6709189],[-31.5601655,-63.6709201],[-31.5553423,-63.6709293],[-31.5537126,-63.6769183]],"coordsKml":[[-63.6769183,-31.5537126],[-63.6768984,-31.5677355],[-63.6768959,-31.5677355],[-63.6708507,-31.5658146],[-63.6707063,-31.5697169],[-63.6683802,-31.5696896],[-63.668403,-31.5592409],[-63.6709189,-31.560409],[-63.6709201,-31.5601655],[-63.6709293,-31.5553423],[-63.6769183,-31.5537126]]},{"id":32,"nombre":"SERGIO","campo":"SERGIO","cultivoDefault":"soja","areaHa":45.55,"centro":{"lat":-31.5414821,"lon":-63.8795982},"poligono":[[-31.5437396,-63.8819607],[-31.546712,-63.8797408],[-31.5472788,-63.8769467],[-31.5356352,-63.8782701],[-31.5368195,-63.8819815],[-31.5437396,-63.8819607]],"coordsKml":[[-63.8819607,-31.5437396],[-63.8797408,-31.546712],[-63.8769467,-31.5472788],[-63.8782701,-31.5356352],[-63.8819815,-31.5368195],[-63.8819607,-31.5437396]]},{"id":33,"nombre":"CIERI","campo":"CIERI","cultivoDefault":"soja","areaHa":109.46,"centro":{"lat":-31.50819,"lon":-63.9586648},"poligono":[[-31.5045811,-63.9632742],[-31.5158462,-63.9633482],[-31.5133611,-63.9582009],[-31.512758,-63.9569223],[-31.5130127,-63.9567186],[-31.5117147,-63.9540897],[-31.5116023,-63.9538986],[-31.5014113,-63.9538439],[-31.5025495,-63.9592947],[-31.5045811,-63.9632742]],"coordsKml":[[-63.9632742,-31.5045811],[-63.9633482,-31.5158462],[-63.9582009,-31.5133611],[-63.9569223,-31.512758],[-63.9567186,-31.5130127],[-63.9540897,-31.5117147],[-63.9538986,-31.5116023],[-63.9538439,-31.5014113],[-63.9592947,-31.5025495],[-63.9632742,-31.5045811]]},{"id":34,"nombre":"COSTA SACATE LOTE 4","campo":"COSTA SACATE","cultivoDefault":"soja","areaHa":44.21,"centro":{"lat":-31.6690126,"lon":-63.7300232},"poligono":[[-31.6667355,-63.7342144],[-31.6685099,-63.7342093],[-31.6717861,-63.7343404],[-31.6710161,-63.7251808],[-31.6662583,-63.7263175],[-31.6667355,-63.7342144]],"coordsKml":[[-63.7342144,-31.6667355],[-63.7342093,-31.6685099],[-63.7343404,-31.6717861],[-63.7251808,-31.6710161],[-63.7263175,-31.6662583],[-63.7342144,-31.6667355]]}];
+
+const CULTIVO_DEFAULT = {
+  trigo:    { nombre:'Trigo',    kc:[0.40,1.15,0.30], etapas:[20,50,60,30] },
+  maiz:     { nombre:'Maíz',     kc:[0.30,1.20,0.35], etapas:[25,40,45,30] },
+  soja:     { nombre:'Soja',     kc:[0.40,1.15,0.50], etapas:[20,35,60,25] },
+  girasol:  { nombre:'Girasol',  kc:[0.35,1.10,0.35], etapas:[25,35,45,25] },
+  sorgo:    { nombre:'Sorgo',    kc:[0.30,1.05,0.55], etapas:[20,35,40,30] },
+  cebada:   { nombre:'Cebada',   kc:[0.30,1.15,0.25], etapas:[20,50,60,30] },
+  alfalfa:  { nombre:'Alfalfa',  kc:[0.40,0.95,0.90], etapas:[10,20,20,10] }
+};
+let cultivos = JSON.parse(localStorage.getItem('bh_secano_cultivos_v1') || 'null') || JSON.parse(JSON.stringify(CULTIVO_DEFAULT));
+let cfgs = JSON.parse(localStorage.getItem('bh_secano_cfg_v1') || '{}');
+let lluviasManual = JSON.parse(localStorage.getItem('bh_secano_lluvias_v1') || '{}');
+let estadoHidrico = JSON.parse(localStorage.getItem('bh_secano_estado_v1') || '{}');
+let ultimoBalance = null;
+let balChartObj = null;
+let map = null;
+let loteLayers = {};
+let mapaEstado = true;
+let toastTimer;
+let cultivoEnEdicion = 'soja';
+
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function addDaysStr(base, days){ const d=new Date(base+'T00:00:00'); d.setDate(d.getDate()+days); return d.toISOString().split('T')[0]; }
+function fmt(n,d=1){ return (n==null || isNaN(n)) ? '—' : Number(n).toFixed(d); }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+function loteById(id){ return LOTES.find(l => String(l.id) === String(id)); }
+function getCfg(id){
+  const l = loteById(id);
+  const saved = cfgs[id] || {};
+  return Object.assign({ cultivo:l?.cultivoDefault || 'soja', siembra:'', fechaAuInicial:todayStr(), auInicial:'', auMax:360, umbral:40, lluviaAuto:true }, saved);
+}
+function isConfigured(id){ const c=getCfg(id); return !!(c.cultivo && c.siembra && c.fechaAuInicial && c.auInicial !== '' && c.auInicial != null && c.auMax); }
+function cropName(k){ return cultivos[k]?.nombre || k || '—'; }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2600); }
+function showPanel(name, btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  const tab = btn || document.querySelector(`.tab-btn[data-panel="${name}"]`);
+  if (tab) tab.classList.add('active');
+  if (name==='mapa') setTimeout(initMap,60);
+  if (name==='lista') renderLista();
+  if (name==='resumen') renderResumen();
+  if (name==='ndvi') ndviTemporalInit();
+}
+
+function goPanel(name){ showPanel(name, document.querySelector(`.tab-btn[data-panel="${name}"]`)); }
+function irDatos(id){ document.getElementById('datosLote').value = id; cargarDatosLote(); goPanel('datos'); }
+function irDatosDesdeSelect(selId){ const id=document.getElementById(selId).value; if(!id){showToast('Seleccioná un lote');return;} irDatos(id); }
+function irBalance(id){ document.getElementById('balLote').value = id; cargarInfoBalance(); goPanel('balance'); }
+function irPronostico(id){ document.getElementById('pronLote').value = id; goPanel('pronostico'); }
+
+function estadoClase(id){
+  const e=estadoHidrico[id];
+  if(!e) return '';
+  const c=getCfg(id);
+  if(e.pct <= c.umbral) return 'bad';
+  if(e.pct < 60) return 'warn';
+  return 'ok';
+}
+function estadoColor(id){
+  if(!mapaEstado) return '#2d5a27';
+  const e=estadoHidrico[id];
+  if(!e) return '#9aa0a6';
+  const c=getCfg(id);
+  if(e.pct <= c.umbral) return '#c0392b';
+  if(e.pct < 60) return '#d46b08';
+  return '#1a9850';
+}
+function estadoTexto(id){
+  const e=estadoHidrico[id];
+  if(!e) return 'Sin balance';
+  const c=getCfg(id);
+  if(e.pct <= c.umbral) return 'Déficit / estrés';
+  if(e.pct < 60) return 'Contenido medio';
+  return 'Buen contenido';
+}
+
+function populateSelects(){
+  ['balLote','pronLote','datosLote'].forEach(id=>{
+    const sel=document.getElementById(id); sel.innerHTML='<option value="">— Seleccionar lote —</option>';
+    LOTES.forEach(l=>sel.add(new Option(`${l.id}. ${l.nombre}`, l.id)));
+  });
+  ['datosCultivo','cultEditSel'].forEach(id=>{
+    const sel=document.getElementById(id); sel.innerHTML='';
+    Object.keys(cultivos).forEach(k=>sel.add(new Option(cultivos[k].nombre, k)));
+  });
+  document.getElementById('lluviaFecha').value=todayStr();
+  editarCultivo('soja');
+}
+
+function renderLista(){
+  const q=(document.getElementById('loteSearch')?.value || '').toLowerCase().trim();
+  const cont=document.getElementById('loteList'); cont.innerHTML='';
+  const data=LOTES.filter(l=> !q || (l.nombre+' '+l.campo+' '+cropName(getCfg(l.id).cultivo)).toLowerCase().includes(q));
+  if(!data.length){ cont.innerHTML='<p class="hint" style="text-align:center;padding:16px">No encontré lotes con ese filtro.</p>'; return; }
+  data.forEach(l=>{
+    const cfg=getCfg(l.id), e=estadoHidrico[l.id], conf=isConfigured(l.id);
+    const cls=estadoClase(l.id) || (conf?'ok':'warn');
+    const pct=e ? fmt(e.pct,0)+'%' : '—';
+    const au=e ? fmt(e.au,0)+' mm' : '—';
+    const div=document.createElement('div'); div.className='lote-card '+cls;
+    div.innerHTML=`
+      <div class="card-header">
+        <div class="lote-badge">L${l.id}</div>
+        <div class="card-title"><h3>${l.nombre}</h3><p>${l.campo} · ${l.areaHa.toFixed(1)} ha · ${conf ? '✅ configurado' : '⚠️ falta configurar'}</p></div>
+        <div>${e ? (e.pct <= cfg.umbral ? '🔴' : e.pct < 60 ? '🟠' : '🟢') : '⚪'}</div>
+      </div>
+      <div class="card-meta">
+        <div class="mini"><div class="val">${cropName(cfg.cultivo)}</div><div class="lbl">Cultivo</div></div>
+        <div class="mini"><div class="val">${au}</div><div class="lbl">AU hoy</div></div>
+        <div class="mini"><div class="val">${pct}</div><div class="lbl">Estado</div></div>
+      </div>
+      <div class="card-actions">
+        <button onclick="focusLote(${l.id});goPanel('mapa')">🗺️ Mapa</button>
+        <button onclick="irBalance(${l.id})">🌾 Balance</button>
+        <button onclick="irDatos(${l.id})">✏️ Datos</button>
+      </div>`;
+    cont.appendChild(div);
+  });
+}
+
+function initMap(){
+  if(map){ map.invalidateSize(); refreshMapStyles(); ndviInitUI(); return; }
+  map=L.map('map');
+  const esriSat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:20,attribution:'© Esri, Maxar'});
+  const esriLabels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:20});
+  const osm=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'});
+  const googleHybrid=L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{maxZoom:20,subdomains:['mt0','mt1','mt2','mt3'],attribution:'© Google'});
+  esriSat.addTo(map); esriLabels.addTo(map);
+  L.control.layers({'🛰️ Híbrido ESRI':L.layerGroup([esriSat,esriLabels]),'🌍 Google Híbrido':googleHybrid,'🗺️ OpenStreetMap':osm},{},{position:'topright',collapsed:true}).addTo(map);
+  const group=[];
+  LOTES.forEach(l=>{
+    const poly=L.polygon(l.poligono, polyStyle(l.id)).addTo(map).bindPopup(popupLote(l));
+    poly.on('click',()=>poly.setPopupContent(popupLote(l)));
+    const marker=L.circleMarker([l.centro.lat,l.centro.lon], markerStyle(l.id)).addTo(map).bindTooltip('L'+l.id,{permanent:true,direction:'center',className:'lote-label'}).bindPopup(popupLote(l));
+    loteLayers[l.id]={poly,marker}; group.push(poly);
+  });
+  if(group.length){ map.fitBounds(L.featureGroup(group).getBounds(),{padding:[24,24]}); }
+  document.getElementById('estadoLegend').classList.toggle('show', mapaEstado);
+  document.getElementById('mapStateBtn').classList.toggle('on', mapaEstado);
+  ndviInitUI();
+  if(ndviInstanceId && ndviIndiceActivo !== 'OFF') aplicarCapaNdvi();
+}
+
+function polyStyle(id){ const col=estadoColor(id); const ndviActiva=(typeof ndviIndiceActivo!=='undefined' && ndviIndiceActivo!=='OFF' && ndviLayer); return {color:col,weight:2,opacity:.95,fillColor:col,fillOpacity:ndviActiva?.05:(mapaEstado?.28:.18)}; }
+function markerStyle(id){ const col=estadoColor(id); return {radius:13,color:'#fff',weight:2,fillColor:col,fillOpacity:.95}; }
+function popupLote(l){
+  const cfg=getCfg(l.id), e=estadoHidrico[l.id], conf=isConfigured(l.id);
+  const estado=e ? `<b style="color:${estadoColor(l.id)}">${fmt(e.au,0)} mm · ${fmt(e.pct,0)}%</b><br><span class="muted">${estadoTexto(l.id)} · ${e.fecha || ''}</span>` : '<span class="muted">Sin balance calculado</span>';
+  return `<b>${l.nombre}</b><br><span class="muted">${l.areaHa.toFixed(1)} ha · ${l.campo}</span><br><br>${estado}<br><span class="muted">Cultivo: ${cropName(cfg.cultivo)} · ${conf?'configurado':'falta configurar'}</span><br><br>
+  <button onclick="irBalance(${l.id})" style="background:#2d5a27;color:#fff;border:none;padding:6px 10px;border-radius:7px;font-weight:800;margin-right:4px">🌾 Balance</button>
+  <button onclick="irDatos(${l.id})" style="background:#d46b08;color:#fff;border:none;padding:6px 10px;border-radius:7px;font-weight:800">✏️ Datos</button>`;
+}
+function refreshMapStyles(){
+  if(!map) return;
+  Object.keys(loteLayers).forEach(id=>{
+    loteLayers[id].poly.setStyle(polyStyle(id));
+    loteLayers[id].marker.setStyle(markerStyle(id));
+    const l=loteById(id);
+    loteLayers[id].poly.setPopupContent(popupLote(l));
+    loteLayers[id].marker.setPopupContent(popupLote(l));
+  });
+}
+function fitAll(){ if(!map) return; const group=L.featureGroup(Object.values(loteLayers).map(x=>x.poly)); map.fitBounds(group.getBounds(),{padding:[24,24]}); }
+function focusLote(id){
+  setTimeout(()=>{
+    initMap(); const l=loteById(id); if(!l || !map) return;
+    map.setView([l.centro.lat,l.centro.lon],15);
+    if(loteLayers[id]) loteLayers[id].poly.openPopup();
+  },80);
+}
+function toggleEstadoMapa(){ mapaEstado=!mapaEstado; document.getElementById('estadoLegend').classList.toggle('show', mapaEstado); document.getElementById('mapStateBtn').classList.toggle('on', mapaEstado); refreshMapStyles(); }
+function centrarGPS(){
+  if(!navigator.geolocation){ showToast('GPS no disponible'); return; }
+  showToast('📍 Localizando...');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const ll=[pos.coords.latitude,pos.coords.longitude]; map.setView(ll,16); L.circleMarker(ll,{radius:8,color:'#1a6b8a',fillColor:'#2590b8',fillOpacity:.9,weight:2}).addTo(map).bindPopup('📍 Mi ubicación').openPopup();
+  },()=>showToast('⚠️ No se pudo obtener GPS'),{enableHighAccuracy:true,timeout:9000});
+}
+
+function cargarDatosLote(){
+  const id=document.getElementById('datosLote').value; if(!id) return;
+  const l=loteById(id), c=getCfg(id);
+  document.getElementById('datosMeta').innerHTML=`<b>${l.nombre}</b><br>${l.campo} · ${l.areaHa.toFixed(2)} ha · centro ${l.centro.lat.toFixed(6)}, ${l.centro.lon.toFixed(6)}`;
+  document.getElementById('datosCultivo').value=c.cultivo;
+  document.getElementById('datosSiembra').value=c.siembra || '';
+  document.getElementById('datosFechaAu').value=c.fechaAuInicial || todayStr();
+  document.getElementById('datosAuInicial').value=c.auInicial ?? '';
+  document.getElementById('datosAuMax').value=c.auMax ?? 360;
+  document.getElementById('datosUmbral').value=c.umbral ?? 40;
+  document.getElementById('datosLluviaAuto').checked=c.lluviaAuto !== false;
+  renderLluviasManual();
+}
+function guardarDatosLote(){
+  const id=document.getElementById('datosLote').value; if(!id){showToast('Seleccioná un lote'); return;}
+  const auInicial=parseFloat(document.getElementById('datosAuInicial').value);
+  const auMax=parseFloat(document.getElementById('datosAuMax').value);
+  const umbral=parseFloat(document.getElementById('datosUmbral').value);
+  const cfg={
+    cultivo:document.getElementById('datosCultivo').value,
+    siembra:document.getElementById('datosSiembra').value,
+    fechaAuInicial:document.getElementById('datosFechaAu').value || todayStr(),
+    auInicial:isNaN(auInicial)?'':auInicial,
+    auMax:isNaN(auMax)?360:auMax,
+    umbral:isNaN(umbral)?40:umbral,
+    lluviaAuto:document.getElementById('datosLluviaAuto').checked
+  };
+  cfgs[id]=cfg; localStorage.setItem('bh_secano_cfg_v1',JSON.stringify(cfgs));
+  renderLista(); renderResumen(); refreshMapStyles(); cargarInfoBalance();
+  showToast(isConfigured(id)?'✅ Configuración guardada':'⚠️ Guardado parcial: faltan datos');
+}
+function agregarLluviaManual(){
+  const id=document.getElementById('datosLote').value; if(!id){showToast('Seleccioná un lote');return;}
+  const fecha=document.getElementById('lluviaFecha').value, mm=parseFloat(document.getElementById('lluviaMm').value);
+  if(!fecha || isNaN(mm) || mm<0){showToast('Lluvia inválida');return;}
+  if(!lluviasManual[id]) lluviasManual[id]=[];
+  lluviasManual[id].push({fecha,mm}); lluviasManual[id].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  localStorage.setItem('bh_secano_lluvias_v1',JSON.stringify(lluviasManual));
+  document.getElementById('lluviaMm').value=''; renderLluviasManual(); showToast('🌧️ Lluvia agregada');
+}
+function borrarLluvia(idx){
+  const id=document.getElementById('datosLote').value; if(!id || !lluviasManual[id]) return;
+  lluviasManual[id].splice(idx,1); localStorage.setItem('bh_secano_lluvias_v1',JSON.stringify(lluviasManual)); renderLluviasManual();
+}
+function renderLluviasManual(){
+  const id=document.getElementById('datosLote').value, cont=document.getElementById('lluviasList'); if(!cont) return;
+  const arr=lluviasManual[id] || [];
+  if(!id){cont.innerHTML='';return;}
+  if(!arr.length){cont.innerHTML='<p class="hint" style="text-align:center">Sin lluvias manuales cargadas para este lote.</p>'; return;}
+  cont.innerHTML=arr.map((e,i)=>`<div class="event-row"><span>🌧️ <b>${e.fecha}</b> · ${fmt(e.mm,1)} mm</span><button class="btn-inline bad" onclick="borrarLluvia(${i})">Borrar</button></div>`).join('');
+}
+
+function cargarInfoBalance(){
+  const id=document.getElementById('balLote').value; const info=document.getElementById('balInfo'); if(!id){info.textContent='';return;}
+  const l=loteById(id), c=getCfg(id);
+  info.innerHTML = `<b>${l.nombre}</b><br>${isConfigured(id)?'✅ Listo para calcular':'⚠️ Faltan datos: cultivo, siembra, fecha AU inicial y AU inicial'} · Cultivo ${cropName(c.cultivo)} · AU inicial ${c.auInicial || '—'} mm · AU máx ${c.auMax || '—'} mm`;
+}
+
+function kcDelDia(dia, etapas, kc){
+  const [Li,Ld,Lm,Lf]=etapas;
+  if(dia < 0) return kc[0];
+  if(dia < Li) return kc[0];
+  if(dia < Li+Ld) return kc[0] + (kc[1]-kc[0])*(dia-Li)/Ld;
+  if(dia < Li+Ld+Lm) return kc[1];
+  if(dia < Li+Ld+Lm+Lf) return kc[1] + (kc[2]-kc[1])*(dia-Li-Ld-Lm)/Lf;
+  return kc[2];
+}
+function etapaDelDia(dia, etapas){
+  const [Li,Ld,Lm,Lf]=etapas;
+  if(dia < Li) return 'Inicial';
+  if(dia < Li+Ld) return 'Desarrollo';
+  if(dia < Li+Ld+Lm) return 'Media';
+  if(dia < Li+Ld+Lm+Lf) return 'Final';
+  return 'Post-cosecha';
+}
+async function traerClima(lat, lon, fIni, fFin, forecastDays=7){
+  const datos={};
+  const hoy=todayStr();
+  if(fIni <= hoy){
+    const endHist = fFin < hoy ? fFin : hoy;
+    try{
+      const u1=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${fIni}&end_date=${endHist}&daily=et0_fao_evapotranspiration,precipitation_sum&timezone=auto`;
+      const r1=await fetch(u1); if(r1.ok){ const j=await r1.json(); (j.daily?.time||[]).forEach((t,i)=>datos[t]={et0:j.daily.et0_fao_evapotranspiration[i]||0,prec:j.daily.precipitation_sum[i]||0}); }
+    }catch(e){}
+  }
+  try{
+    const fd=clamp(forecastDays,0,16);
+    const u2=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=et0_fao_evapotranspiration,precipitation_sum&past_days=10&forecast_days=${fd || 1}&timezone=auto`;
+    const r2=await fetch(u2); if(r2.ok){ const j=await r2.json(); (j.daily?.time||[]).forEach((t,i)=>{ if(t>=fIni && t<=fFin) datos[t]={et0:j.daily.et0_fao_evapotranspiration[i]||0,prec:j.daily.precipitation_sum[i]||0}; }); }
+  }catch(e){}
+  if(Object.keys(datos).length===0) throw new Error('No se pudo obtener clima de Open-Meteo');
+  return datos;
+}
+function lluviaManualFecha(id, fecha){ return (lluviasManual[id]||[]).filter(e=>e.fecha===fecha).reduce((a,e)=>a+(parseFloat(e.mm)||0),0); }
+async function computarBalanceLote(id, diasFuturo=7){
+  const l=loteById(id), cfg=getCfg(id);
+  if(!isConfigured(id)) throw new Error('El lote no está configurado. Cargá datos primero.');
+  const cult=cultivos[cfg.cultivo]; if(!cult) throw new Error('Cultivo no válido');
+  const fIni=cfg.fechaAuInicial;
+  const fFin=addDaysStr(todayStr(), diasFuturo);
+  const clima=await traerClima(l.centro.lat,l.centro.lon,fIni,fFin,Math.max(7,diasFuturo));
+  const fechas=Object.keys(clima).sort().filter(f=>f>=fIni && f<=fFin);
+  let au=parseFloat(cfg.auInicial);
+  const auMax=parseFloat(cfg.auMax);
+  const siembra=new Date(cfg.siembra+'T00:00:00');
+  const serie=[];
+  fechas.forEach(f=>{
+    const d=clima[f];
+    const dia=Math.floor((new Date(f+'T00:00:00')-siembra)/86400000);
+    const kc=kcDelDia(dia,cult.etapas,cult.kc);
+    const etc=(d.et0||0)*kc;
+    const lluvia= cfg.lluviaAuto !== false ? (d.prec||0) : lluviaManualFecha(id,f);
+    au=clamp(au + lluvia - etc, 0, auMax);
+    serie.push({fecha:f, au, pct:au/auMax*100, lluvia, et0:d.et0||0, kc, etc, dia, etapa:etapaDelDia(dia,cult.etapas)});
+  });
+  if(!serie.length) throw new Error('Sin datos climáticos en el rango');
+  let actual=serie[serie.length-1];
+  for(let i=serie.length-1;i>=0;i--){ if(serie[i].fecha <= todayStr()){ actual=serie[i]; break; } }
+  return {id, lote:l, cfg, cultivo:cult.nombre, auMax, umbral:parseFloat(cfg.umbral)||40, fechaInicial:fIni, auInicial:parseFloat(cfg.auInicial), serie, actual};
+}
+async function calcularBalance(){
+  const id=document.getElementById('balLote').value; const status=document.getElementById('balStatus');
+  document.getElementById('balResumen').innerHTML=''; document.getElementById('balTablaWrap').innerHTML=''; document.getElementById('balChartCard').style.display='none'; document.getElementById('balExportBtn').style.display='none';
+  if(!id){ status.className='status error'; status.textContent='⚠️ Seleccioná un lote'; return; }
+  status.className='status loading'; status.textContent='⏳ Trayendo clima y calculando balance...';
+  try{
+    const b=await computarBalanceLote(id,7); ultimoBalance=b;
+    estadoHidrico[id]={au:b.actual.au,pct:b.actual.pct,fecha:b.actual.fecha,cultivo:b.cultivo,umbral:b.umbral}; localStorage.setItem('bh_secano_estado_v1',JSON.stringify(estadoHidrico));
+    status.className='status'; status.textContent=`${b.lote.nombre} · ${b.cultivo} · inicio ${b.fechaInicial} · fuente lluvia: ${b.cfg.lluviaAuto!==false?'Open-Meteo':'manual'}`;
+    renderBalance(b); refreshMapStyles(); renderLista(); renderResumen();
+  }catch(e){ status.className='status error'; status.textContent='❌ '+e.message; }
+}
+function colorPct(p,umbral){ return p<=umbral?'#c0392b':p<60?'#d46b08':'#1a9850'; }
+function renderBalance(b){
+  const a=b.actual, col=colorPct(a.pct,b.umbral), pct=clamp(a.pct,0,100), def=Math.max(0,b.auMax-a.au);
+  const fut=b.serie.filter(x=>x.fecha>todayStr());
+  const lluviaFut=fut.reduce((s,x)=>s+x.lluvia,0), etcFut=fut.reduce((s,x)=>s+x.etc,0);
+  const primerDef=b.serie.find(x=>x.pct<=b.umbral);
+  const riesgo=primerDef ? `Riesgo desde ${new Date(primerDef.fecha+'T00:00:00').toLocaleDateString('es-AR')}` : 'Sin cruce del umbral';
+  document.getElementById('balResumen').innerHTML=`
+    <div class="cards2">
+      <div class="metric"><div class="val" style="color:${col}">${fmt(a.au,0)}</div><div class="lbl">AU hoy (mm)</div><div class="sub">de ${fmt(b.auMax,0)} mm</div></div>
+      <div class="metric"><div class="val" style="color:${col}">${fmt(a.pct,0)}%</div><div class="lbl">Agua útil</div><div class="sub">${estadoTexto(b.id)}</div></div>
+      <div class="metric"><div class="val bluec">${fmt(a.etc,1)}</div><div class="lbl">ETc hoy</div><div class="sub">Kc ${fmt(a.kc,2)} · ${a.etapa}</div></div>
+      <div class="metric"><div class="val warnc">${fmt(def,0)}</div><div class="lbl">Déficit a CC</div><div class="sub">${riesgo}</div></div>
+      <div class="metric full"><div class="bar-wrap"><div class="bar" style="width:${pct}%;background:${col}"></div></div><div class="sub">Próx. 7 días: lluvia ${fmt(lluviaFut,1)} mm · ETc ${fmt(etcFut,1)} mm · umbral ${b.umbral}%</div></div>
+    </div>`;
+  dibujarGraficoBalance(b);
+  renderTablaBalance(b);
+  document.getElementById('balExportBtn').style.display='block';
+}
+function dibujarGraficoBalance(b){
+  document.getElementById('balChartCard').style.display='block'; document.getElementById('balChartTitle').textContent='Balance hídrico — '+b.lote.nombre;
+  const ctx=document.getElementById('balChart'); if(balChartObj) balChartObj.destroy();
+  const umbralMm=b.auMax*b.umbral/100;
+  balChartObj=new Chart(ctx,{type:'bar',data:{labels:b.serie.map(x=>x.fecha),datasets:[
+    {type:'line',label:'Agua útil (mm)',data:b.serie.map(x=>x.au),borderColor:'#1a6b8a',backgroundColor:'rgba(26,107,138,.10)',fill:true,tension:.25,pointRadius:2,yAxisID:'y'},
+    {type:'line',label:'Umbral estrés',data:b.serie.map(()=>umbralMm),borderColor:'#c0392b',borderDash:[5,4],pointRadius:0,fill:false,yAxisID:'y'},
+    {type:'bar',label:'Lluvia (mm)',data:b.serie.map(x=>x.lluvia),backgroundColor:'rgba(39,174,96,.45)',yAxisID:'y2'}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},scales:{y:{beginAtZero:true,suggestedMax:b.auMax,title:{display:true,text:'Agua útil (mm)'}},y2:{position:'right',beginAtZero:true,grid:{drawOnChartArea:false},title:{display:true,text:'Lluvia (mm)'}}},plugins:{legend:{labels:{font:{size:11}}}}}});
+}
+function renderTablaBalance(b){
+  const rows=b.serie.slice(-18).map(x=>`<tr><td>${x.fecha}</td><td>${fmt(x.au,0)}</td><td>${fmt(x.pct,0)}%</td><td>${fmt(x.lluvia,1)}</td><td>${fmt(x.etc,1)}</td><td>${fmt(x.kc,2)}</td><td>${x.etapa}</td></tr>`).join('');
+  document.getElementById('balTablaWrap').innerHTML=`<table class="table"><tr><th>Fecha</th><th>AU<br>mm</th><th>AU<br>%</th><th>Lluvia</th><th>ETc</th><th>Kc</th><th>Etapa</th></tr>${rows}</table>`;
+}
+function exportarBalanceCSV(){
+  if(!ultimoBalance){showToast('Sin balance para exportar');return;}
+  const b=ultimoBalance;
+  const rows=[['Lote','Nombre','Fecha','Cultivo','AU_mm','AU_%','Lluvia_mm','ET0_mm','Kc','ETc_mm','Etapa','Dia_cultivo','AU_max_mm','Umbral_%']];
+  b.serie.forEach(x=>rows.push([b.id,`"${b.lote.nombre}"`,x.fecha,`"${b.cultivo}"`,fmt(x.au,2),fmt(x.pct,2),fmt(x.lluvia,2),fmt(x.et0,2),fmt(x.kc,3),fmt(x.etc,2),`"${x.etapa}"`,x.dia,b.auMax,b.umbral]));
+  downloadText('balance_secano_lote_'+b.id+'_'+todayStr()+'.csv','\uFEFF'+rows.map(r=>r.join(',')).join('\n'),'text/csv;charset=utf-8;');
+}
+
+function codeInfo(c){
+  if(c===0)return{icon:'☀️',txt:'Despejado'}; if(c<=2)return{icon:'🌤️',txt:'Parc. nublado'}; if(c===3)return{icon:'☁️',txt:'Nublado'}; if(c===45||c===48)return{icon:'🌫️',txt:'Niebla'}; if(c>=51&&c<=57)return{icon:'🌦️',txt:'Llovizna'}; if(c>=61&&c<=67)return{icon:'🌧️',txt:'Lluvia'}; if(c>=80&&c<=82)return{icon:'🌧️',txt:'Chaparrones'}; if(c===95)return{icon:'⛈️',txt:'Tormenta'}; if(c===96||c===99)return{icon:'⛈️',txt:'Tormenta c/granizo'}; return{icon:'🌡️',txt:'—'};
+}
+async function traerPronostico(lat, lon){
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_min,temperature_2m_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,et0_fao_evapotranspiration,weather_code&hourly=vapour_pressure_deficit&forecast_days=14&timezone=auto`;
+  const r=await fetch(url); if(!r.ok) throw new Error('Open-Meteo '+r.status); const j=await r.json();
+  const vpd={}; (j.hourly?.time||[]).forEach((t,i)=>{const d=t.split('T')[0], v=j.hourly.vapour_pressure_deficit[i]; if(v==null)return; if(vpd[d]==null||v>vpd[d])vpd[d]=v;});
+  const D=j.daily;
+  return (D.time||[]).map((t,i)=>({fecha:t,tmin:D.temperature_2m_min[i],tmax:D.temperature_2m_max[i],precip:D.precipitation_sum[i]||0,prob:D.precipitation_probability_max[i],viento:D.wind_speed_10m_max[i],racha:D.wind_gusts_10m_max[i],et0:D.et0_fao_evapotranspiration[i]||0,code:D.weather_code[i],vpd:vpd[t]??null}));
+}
+async function calcularPronostico(){
+  const id=document.getElementById('pronLote').value, status=document.getElementById('pronStatus');
+  document.getElementById('pronReco').innerHTML='';document.getElementById('pronAlertas').innerHTML='';document.getElementById('pronLista').innerHTML='';
+  if(!id){status.className='status error';status.textContent='⚠️ Seleccioná un lote';return;}
+  const l=loteById(id); status.className='status loading'; status.textContent='⏳ Trayendo pronóstico 14 días...';
+  try{
+    const dias=await traerPronostico(l.centro.lat,l.centro.lon);
+    let base=null; try{ base=await computarBalanceLote(id,0); }catch(e){}
+    proyectarPronostico(id,dias,base);
+    status.className='status'; status.textContent=`Pronóstico 14 días · ${l.nombre} · ${new Date().toLocaleDateString('es-AR')}`;
+    renderPronostico(id,dias,base);
+  }catch(e){status.className='status error';status.textContent='❌ '+e.message;}
+}
+function proyectarPronostico(id,dias,base){
+  if(!base) return;
+  const cfg=getCfg(id), cult=cultivos[cfg.cultivo], siembra=new Date(cfg.siembra+'T00:00:00');
+  let au=base.actual.au, auMax=base.auMax;
+  dias.forEach(d=>{
+    const dia=Math.floor((new Date(d.fecha+'T00:00:00')-siembra)/86400000);
+    d.kc=kcDelDia(dia,cult.etapas,cult.kc); d.etc=d.et0*d.kc;
+    if(d.fecha>todayStr()) au=clamp(au + d.precip - d.etc,0,auMax);
+    d.auProj=au; d.pctProj=au/auMax*100;
+  });
+}
+function renderPronostico(id,dias,base){
+  const cfg=getCfg(id), umbral=parseFloat(cfg.umbral)||40;
+  const stress=base ? dias.find(d=>d.pctProj<=umbral) : null;
+  const totalRain=dias.reduce((s,d)=>s+d.precip,0), totalEt0=dias.reduce((s,d)=>s+d.et0,0);
+  let reco;
+  if(!base){ reco='<b>ℹ️ Proyección hídrica no disponible</b><br><span style="font-size:12px">Configurá AU inicial, AU máxima y siembra para proyectar estrés hídrico. Se muestran alertas climáticas igualmente.</span>'; }
+  else if(stress){ const def=Math.max(0,base.auMax-stress.auProj); reco=`<b>⚠️ Estrés hídrico probable desde ${new Date(stress.fecha+'T00:00:00').toLocaleDateString('es-AR')}</b><br><span style="font-size:12px">AU proyectado ${fmt(stress.pctProj,0)}%. Déficit estimado a capacidad de campo: <b>${fmt(def,0)} mm</b>. En secano, revisar lote y expectativa de lluvias.</span>`; }
+  else { reco=`<b>✔ Sin estrés hídrico proyectado bajo el umbral ${umbral}%</b><br><span style="font-size:12px">Lluvia prevista ${fmt(totalRain,1)} mm · ET0 acumulada ${fmt(totalEt0,1)} mm en 14 días.</span>`; }
+  document.getElementById('pronReco').innerHTML=`<div style="background:${stress?'#fdecea':'#eef7e4'};border-radius:var(--radius);padding:14px;color:${stress?'#c0392b':'#1a9850'};box-shadow:var(--shadow)">${reco}</div>`;
+  const conteo={helada:0,viento:0,tormenta:0,vpd:0,estres:0};
+  dias.forEach(d=>{ if(d.tmin<=3)conteo.helada++; if(d.racha>50)conteo.viento++; if(d.code>=95||d.precip>=25)conteo.tormenta++; if(d.vpd>=2.5)conteo.vpd++; if(base&&d.pctProj<=umbral)conteo.estres++; });
+  document.getElementById('pronAlertas').innerHTML=`<div class="cards3">
+    <div class="metric"><div class="val bluec">${conteo.helada}</div><div class="lbl">Heladas/riesgo</div></div>
+    <div class="metric"><div class="val warnc">${conteo.viento}</div><div class="lbl">Viento fuerte</div></div>
+    <div class="metric"><div class="val badc">${conteo.tormenta}</div><div class="lbl">Tormenta/lluvia</div></div>
+    <div class="metric"><div class="val warnc">${conteo.vpd}</div><div class="lbl">DPV alto</div></div>
+    <div class="metric"><div class="val badc">${conteo.estres}</div><div class="lbl">Días bajo umbral</div></div>
+    <div class="metric"><div class="val bluec">${fmt(totalRain,0)}</div><div class="lbl">Lluvia 14d mm</div></div>
+  </div>`;
+  const rows=dias.map(d=>{
+    const ci=codeInfo(d.code); const alerts=[];
+    if(d.tmin<=0)alerts.push('🧊 helada'); else if(d.tmin<=3)alerts.push('❄️ riesgo');
+    if(d.racha>50)alerts.push('💨 viento'); if(d.code>=95||d.precip>=25)alerts.push('⛈️ tormenta'); if(d.vpd>=2.5)alerts.push('🥵 DPV'); if(base&&d.pctProj<=umbral)alerts.push('🔴 AU');
+    return `<tr><td>${d.fecha}<br><span class="muted">${ci.icon} ${ci.txt}</span></td><td>${fmt(d.tmin,0)} / ${fmt(d.tmax,0)}°</td><td>${fmt(d.precip,1)}<br><span class="muted">${d.prob??'—'}%</span></td><td>${fmt(d.et0,1)}</td><td>${d.vpd==null?'—':fmt(d.vpd,1)}</td><td>${base?fmt(d.pctProj,0)+'%':'—'}</td><td class="left">${alerts.join('<br>')||'<span class="muted">—</span>'}</td></tr>`;
+  }).join('');
+  document.getElementById('pronLista').innerHTML=`<table class="table"><tr><th>Fecha</th><th>T°</th><th>Lluvia<br>mm/prob</th><th>ET0</th><th>DPV</th><th>AU</th><th>Alertas</th></tr>${rows}</table>`;
+}
+
+async function actualizarTodos(){
+  const ids=LOTES.filter(l=>isConfigured(l.id)).map(l=>l.id); const status=document.getElementById('todosStatus');
+  if(!ids.length){status.className='status error';status.textContent='No hay lotes configurados todavía.';return;}
+  status.className='status loading';
+  let ok=0;
+  for(let i=0;i<ids.length;i++){
+    const id=ids[i]; status.textContent=`⏳ Calculando ${i+1}/${ids.length}: lote ${id}...`;
+    try{ const b=await computarBalanceLote(id,0); estadoHidrico[id]={au:b.actual.au,pct:b.actual.pct,fecha:b.actual.fecha,cultivo:b.cultivo,umbral:b.umbral}; ok++; }
+    catch(e){ console.warn('balance lote',id,e); }
+  }
+  localStorage.setItem('bh_secano_estado_v1',JSON.stringify(estadoHidrico));
+  status.className='status'; status.textContent=`✔ ${ok} lotes actualizados al ${new Date().toLocaleDateString('es-AR')}`;
+  renderResumen(); renderLista(); refreshMapStyles();
+}
+function renderResumen(){
+  const total=LOTES.length, conf=LOTES.filter(l=>isConfigured(l.id)).length, pct=Math.round(conf/total*100), ha=LOTES.reduce((a,l)=>a+l.areaHa,0);
+  document.getElementById('resPct').textContent=pct+'%'; document.getElementById('resSub').textContent=`${conf} de ${total} lotes configurados`; document.getElementById('resBar').style.width=pct+'%';
+  document.getElementById('sumLotes').textContent=total; document.getElementById('sumConfig').textContent=conf; document.getElementById('sumHa').textContent=ha.toFixed(0);
+  const cont=document.getElementById('estadoLista');
+  const arr=LOTES.filter(l=>estadoHidrico[l.id]).sort((a,b)=>estadoHidrico[a.id].pct-estadoHidrico[b.id].pct);
+  if(!arr.length){ cont.innerHTML='<p class="hint" style="text-align:center;padding:12px">Todavía no hay balances calculados. Usá “Actualizar balance de todos”.</p>'; return; }
+  cont.innerHTML=arr.map(l=>{ const e=estadoHidrico[l.id], col=estadoColor(l.id), pct=clamp(e.pct,0,100); return `<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;gap:8px"><span><b>${l.nombre}</b><br><span class="muted">${e.cultivo||cropName(getCfg(l.id).cultivo)} · ${e.fecha||''}</span></span><span style="font-weight:900;color:${col};white-space:nowrap">${fmt(e.au,0)} mm · ${fmt(e.pct,0)}%</span></div><div class="bar-wrap" style="height:8px;margin:0"><div class="bar" style="width:${pct}%;background:${col}"></div></div></div>`; }).join('');
+}
+
+function toggleCultParams(){ const b=document.getElementById('cultBody'), open=b.style.display==='none'; b.style.display=open?'block':'none'; document.getElementById('cultArrow').textContent=open?'▲':'▼'; if(open) editarCultivo(cultivoEnEdicion); }
+function editarCultivo(k){ cultivoEnEdicion=k; const c=cultivos[k]; if(!c)return; document.getElementById('cultEditSel').value=k; document.getElementById('cKcIni').value=c.kc[0]; document.getElementById('cKcMed').value=c.kc[1]; document.getElementById('cKcFin').value=c.kc[2]; document.getElementById('cEtIni').value=c.etapas[0]; document.getElementById('cEtDes').value=c.etapas[1]; document.getElementById('cEtMed').value=c.etapas[2]; document.getElementById('cEtFin').value=c.etapas[3]; }
+function guardarCultivo(){ const k=document.getElementById('cultEditSel').value, c=cultivos[k]; if(!c)return; c.kc=[parseFloat(cKcIni.value)||c.kc[0],parseFloat(cKcMed.value)||c.kc[1],parseFloat(cKcFin.value)||c.kc[2]]; c.etapas=[parseInt(cEtIni.value)||c.etapas[0],parseInt(cEtDes.value)||c.etapas[1],parseInt(cEtMed.value)||c.etapas[2],parseInt(cEtFin.value)||c.etapas[3]]; localStorage.setItem('bh_secano_cultivos_v1',JSON.stringify(cultivos)); showToast('✅ Kc guardado'); }
+
+function exportarConfigCSV(){
+  const rows=[['Lote','Nombre','Campo','Area_ha','Lat_centro','Lon_centro','Configurado','Cultivo','Fecha_siembra','Fecha_AU_inicial','AU_inicial_mm','AU_max_mm','Umbral_%','Lluvia_automatica','AU_hoy_mm','AU_hoy_%']];
+  LOTES.forEach(l=>{ const c=getCfg(l.id), e=estadoHidrico[l.id]; rows.push([l.id,`"${l.nombre}"`,`"${l.campo}"`,l.areaHa,l.centro.lat,l.centro.lon,isConfigured(l.id)?'SI':'NO',`"${cropName(c.cultivo)}"`,c.siembra,c.fechaAuInicial,c.auInicial,c.auMax,c.umbral,c.lluviaAuto!==false?'SI':'NO',e?fmt(e.au,2):'',e?fmt(e.pct,2):'']); });
+  downloadText('config_lotes_secano_'+todayStr()+'.csv','\uFEFF'+rows.map(r=>r.join(',')).join('\n'),'text/csv;charset=utf-8;');
+}
+function exportarGeoJSON(){
+  const geo={type:'FeatureCollection',features:LOTES.map(l=>({type:'Feature',properties:{id:l.id,nombre:l.nombre,campo:l.campo,areaHa:l.areaHa,cultivo:cropName(getCfg(l.id).cultivo),auHoy:estadoHidrico[l.id]?.au ?? null,pctAU:estadoHidrico[l.id]?.pct ?? null},geometry:{type:'Polygon',coordinates:[l.coordsKml]}}))};
+  downloadText('lotes_balance_secano_'+todayStr()+'.geojson',JSON.stringify(geo,null,2),'application/geo+json');
+}
+function downloadText(filename, text, type){ const blob=new Blob([text],{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); URL.revokeObjectURL(a.href); showToast('✅ Archivo exportado'); }
+
+
+// ══════════════════════════════════════════════════════════
+//  MÓDULO NDVI / NDWI — Sentinel-2 para lotes del KMZ
+// ══════════════════════════════════════════════════════════
+let ndviLayer = null;
+let ndviInstanceId = localStorage.getItem('bh_secano_ndvi_instance_id_v1') || '';
+let ndviIndiceActivo = localStorage.getItem('bh_secano_ndvi_indice_v1') || 'OFF';
+let ndviOpacidad = parseFloat(localStorage.getItem('bh_secano_ndvi_opacidad_v1') || '0.75');
+let ndviNubes = parseInt(localStorage.getItem('bh_secano_ndvi_nubes_v1') || '20');
+let workerUrlNdvi = localStorage.getItem('bh_secano_worker_ndvi_v1') || '';
+let ndviTemporalReady = false;
+let ndviChartObj = null;
+let ultimaSerieNdvi = null;
+
+function rangoFechasReciente(){
+  const hoy=new Date();
+  const desde=new Date(hoy); desde.setDate(hoy.getDate()-30);
+  const iso=d=>d.toISOString().split('T')[0];
+  return `${iso(desde)}/${iso(hoy)}`;
+}
+function ndviInitUI(){
+  const input=document.getElementById('ndviInstanceId'); if(!input) return;
+  input.value=ndviInstanceId;
+  document.getElementById('ndviOpacity').value=Math.round(ndviOpacidad*100);
+  document.getElementById('ndviOpacityVal').textContent=Math.round(ndviOpacidad*100)+'%';
+  document.getElementById('ndviCloud').value=ndviNubes;
+  document.getElementById('ndviCloudVal').textContent=ndviNubes+'%';
+  document.getElementById('ndviConfigWarn').classList.toggle('hidden', !!ndviInstanceId);
+  marcarToggleIndice();
+}
+function toggleNdviPanel(){
+  const p=document.getElementById('ndviPanel'), b=document.getElementById('ndviMapBtn');
+  if(!p) return;
+  p.classList.toggle('open');
+  if(b) b.classList.toggle('on', p.classList.contains('open'));
+  ndviInitUI();
+}
+function guardarNdviInstanceId(){
+  ndviInstanceId=document.getElementById('ndviInstanceId').value.trim();
+  localStorage.setItem('bh_secano_ndvi_instance_id_v1', ndviInstanceId);
+  document.getElementById('ndviConfigWarn').classList.toggle('hidden', !!ndviInstanceId);
+  showToast(ndviInstanceId ? '✅ Instance ID guardado' : 'Instance ID vacío');
+  if(ndviInstanceId && ndviIndiceActivo !== 'OFF') aplicarCapaNdvi();
+}
+function setIndice(ind){
+  if(ind !== 'OFF' && !ndviInstanceId){ showToast('⚠️ Primero pegá tu Instance ID'); document.getElementById('ndviInstanceId').focus(); return; }
+  ndviIndiceActivo=ind; localStorage.setItem('bh_secano_ndvi_indice_v1', ind);
+  marcarToggleIndice(); aplicarCapaNdvi();
+}
+function marcarToggleIndice(){
+  const ids={NDVI:'tgNdvi',NDWI:'tgNdwi',OFF:'tgOff'};
+  Object.keys(ids).forEach(k=>{ const el=document.getElementById(ids[k]); if(el) el.classList.toggle('active', ndviIndiceActivo===k); });
+}
+function aplicarCapaNdvi(){
+  if(!map) return;
+  if(ndviLayer){ map.removeLayer(ndviLayer); ndviLayer=null; }
+  const legend=document.getElementById('ndviLegend'), info=document.getElementById('ndviInfo');
+  if(ndviIndiceActivo==='OFF' || !ndviInstanceId){
+    if(legend) legend.classList.remove('show');
+    if(info) info.textContent='Capa apagada';
+    refreshMapStyles();
+    return;
+  }
+  const url=`https://sh.dataspace.copernicus.eu/ogc/wms/${ndviInstanceId}`;
+  ndviLayer=L.tileLayer.wms(url,{layers:ndviIndiceActivo,format:'image/png',transparent:true,maxcc:ndviNubes,time:rangoFechasReciente(),opacity:ndviOpacidad,attribution:'© Copernicus / Sentinel-2'});
+  ndviLayer.addTo(map);
+  refreshMapStyles();
+  traerLotesAlFrente();
+  dibujarLeyendaIndice();
+  if(info) info.textContent=`${ndviIndiceActivo} · imagen más reciente (últimos 30 días, nubes ≤${ndviNubes}%)`;
+}
+function traerLotesAlFrente(){
+  Object.values(loteLayers||{}).forEach(x=>{
+    try{ if(x.poly && x.poly.bringToFront) x.poly.bringToFront(); }catch(e){}
+    try{ if(x.marker && x.marker.bringToFront) x.marker.bringToFront(); }catch(e){}
+  });
+}
+function dibujarLeyendaIndice(){
+  const legend=document.getElementById('ndviLegend'); if(!legend) return;
+  if(ndviIndiceActivo==='NDVI'){
+    legend.innerHTML=`<div class="legend-bar" style="background:linear-gradient(90deg,#a50026,#d73027,#fdae61,#fee08b,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837)"></div><div class="legend-labels"><span>Suelo desnudo</span><span>Vegetación vigorosa</span></div>`;
+    legend.classList.add('show');
+  } else if(ndviIndiceActivo==='NDWI'){
+    legend.innerHTML=`<div class="legend-bar" style="background:linear-gradient(90deg,#8c510a,#d8b365,#f6e8c3,#c7eae5,#5ab4ac,#01665e)"></div><div class="legend-labels"><span>Seco</span><span>Húmedo / agua</span></div>`;
+    legend.classList.add('show');
+  } else legend.classList.remove('show');
+}
+function setNdviOpacidad(v){
+  ndviOpacidad=(parseInt(v)||0)/100; localStorage.setItem('bh_secano_ndvi_opacidad_v1', ndviOpacidad);
+  document.getElementById('ndviOpacityVal').textContent=v+'%';
+  if(ndviLayer) ndviLayer.setOpacity(ndviOpacidad);
+}
+function setNdviNubes(v){
+  ndviNubes=parseInt(v)||0; localStorage.setItem('bh_secano_ndvi_nubes_v1', ndviNubes);
+  document.getElementById('ndviCloudVal').textContent=v+'%';
+  if(ndviLayer && ndviIndiceActivo !== 'OFF') aplicarCapaNdvi();
+}
+
+// Evalscript para Statistical API: NDVI medio por polígono
+const EVALSCRIPT_NDVI_LOTE = `//VERSION=3
+function setup() {
+  return {
+    input: [{ bands: ["B04","B08","dataMask"] }],
+    output: [
+      { id: "ndvi", bands: 1, sampleType: "FLOAT32" },
+      { id: "dataMask", bands: 1 }
+    ]
+  };
+}
+function evaluatePixel(s) {
+  let ndvi = (s.B08 - s.B04) / (s.B08 + s.B04);
+  return { ndvi: [ndvi], dataMask: [s.dataMask] };
+}`;
+
+function ndviTemporalInit(){
+  const sel=document.getElementById('ndviLote'); if(!sel) return;
+  if(!ndviTemporalReady){
+    sel.innerHTML='<option value="ALL">— Todos los lotes —</option>';
+    LOTES.forEach(l=>sel.add(new Option(`${l.id}. ${l.nombre}`, l.id)));
+    ndviTemporalReady=true;
+  }
+  const w=document.getElementById('workerUrlNdvi'); if(w) w.value=workerUrlNdvi;
+  const card=document.getElementById('oauthCardNdvi'); if(card) card.style.display=workerUrlNdvi ? 'none' : 'block';
+}
+function guardarWorkerUrlNdvi(){
+  const inp=document.getElementById('workerUrlNdvi');
+  workerUrlNdvi=(inp.value||'').trim().replace(/\/$/, '');
+  if(!workerUrlNdvi){ showToast('⚠️ Pegá la URL del Worker'); return; }
+  if(!/^https:\/\//.test(workerUrlNdvi)){ showToast('⚠️ La URL debe empezar con https://'); return; }
+  localStorage.setItem('bh_secano_worker_ndvi_v1', workerUrlNdvi);
+  document.getElementById('oauthCardNdvi').style.display='none';
+  showToast('✅ URL del Worker guardada');
+}
+function coordsPolygonLote(id){
+  const l=loteById(id); if(!l || !l.coordsKml || !l.coordsKml.length) throw new Error(`Sin polígono para lote ${id}`);
+  const coords=l.coordsKml.map(p=>[Number(p[0]), Number(p[1])]);
+  const a=coords[0], b=coords[coords.length-1];
+  if(a[0]!==b[0] || a[1]!==b[1]) coords.push([a[0],a[1]]);
+  return coords;
+}
+async function consultarSerieLoteNdvi(id, dias, nubes){
+  const poly=coordsPolygonLote(id);
+  const hoy=new Date(); hoy.setUTCHours(0,0,0,0);
+  const desde=new Date(hoy); desde.setUTCDate(hoy.getUTCDate()-dias);
+  const finExclusivo=new Date(hoy); finExclusivo.setUTCDate(hoy.getUTCDate()+1);
+  const iso=d=>d.toISOString().split('T')[0]+'T00:00:00Z';
+  const payload={
+    input:{
+      bounds:{geometry:{type:'Polygon',coordinates:[poly]},properties:{crs:'http://www.opengis.net/def/crs/EPSG/0/4326'}},
+      data:[{type:'sentinel-2-l2a',dataFilter:{maxCloudCoverage:nubes}}]
+    },
+    aggregation:{
+      timeRange:{from:iso(desde),to:iso(finExclusivo)},
+      aggregationInterval:{of:'P1D'},
+      evalscript:EVALSCRIPT_NDVI_LOTE,
+      resx:10,resy:10
+    }
+  };
+  const r=await fetch(workerUrlNdvi,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!r.ok){
+    const t=await r.text(); let detalle=t.slice(0,220);
+    try{ const ej=JSON.parse(t); if(ej.error && ej.error.message) detalle=ej.error.message; }catch(e){}
+    throw new Error(`API ${r.status}: ${detalle}`);
+  }
+  const j=await r.json(); const serie=[];
+  (j.data||[]).forEach(item=>{
+    const out=item.outputs && item.outputs.ndvi; if(!out || !out.bands) return;
+    const bandKey=Object.keys(out.bands)[0]; const stats=out.bands[bandKey] && out.bands[bandKey].stats; if(!stats) return;
+    const tieneDatos=(stats.sampleCount == null || stats.sampleCount > 0);
+    if(stats.mean != null && !isNaN(stats.mean) && tieneDatos){
+      const fecha=(item.interval && item.interval.from ? item.interval.from : '').split('T')[0];
+      if(fecha) serie.push({fecha,ndvi:stats.mean});
+    }
+  });
+  serie.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  return serie;
+}
+async function consultarNdviTemporal(){
+  ndviTemporalInit();
+  if(!workerUrlNdvi){ showToast('⚠️ Configurá la URL del Worker primero'); document.getElementById('oauthCardNdvi').style.display='block'; return; }
+  const loteVal=document.getElementById('ndviLote').value;
+  const dias=parseInt(document.getElementById('ndviPeriodo').value)||180;
+  const nubes=parseInt(document.getElementById('ndviCloudTemporal').value)||30;
+  const status=document.getElementById('ndviStatus');
+  document.getElementById('ndviDiffCards').innerHTML='';
+  document.getElementById('ndviChartCard').style.display='none';
+  document.getElementById('ndviExportBtn').style.display='none';
+  status.className='status loading'; status.textContent='⏳ Consultando Sentinel-2...';
+  try{
+    if(loteVal==='ALL') await consultarNdviTodos(dias,nubes,status);
+    else await consultarNdviUno(parseInt(loteVal),dias,nubes);
+    status.className='status'; status.textContent='';
+  }catch(e){ status.className='status error'; status.textContent='❌ '+e.message; }
+}
+function difClaseNdvi(d){ return d>0.01?'diff-up':d<-0.01?'diff-down':'diff-flat'; }
+function renderDiffCardsNdvi(cards){
+  document.getElementById('ndviDiffCards').style.gridTemplateColumns='1fr 1fr';
+  document.getElementById('ndviDiffCards').innerHTML=cards.map(x=>`<div class="diff-card"><div class="diff-val ${x.cls}">${x.val}</div><div class="diff-lbl">${x.lbl}</div><div class="diff-sub">${x.sub}</div></div>`).join('');
+}
+async function consultarNdviUno(id,dias,nubes){
+  const serie=await consultarSerieLoteNdvi(id,dias,nubes);
+  if(serie.length<2) throw new Error('Datos insuficientes: menos de 2 fechas válidas. Probá subir nubes máximas o ampliar período.');
+  const l=loteById(id), actual=serie[serie.length-1], anterior=serie[serie.length-2], promedio=serie.reduce((a,x)=>a+x.ndvi,0)/serie.length;
+  const difAnt=actual.ndvi-anterior.ndvi, difProm=actual.ndvi-promedio;
+  ultimaSerieNdvi={tipo:'uno',id,nombre:l.nombre,serie};
+  renderDiffCardsNdvi([
+    {val:actual.ndvi.toFixed(3),lbl:'NDVI actual',sub:actual.fecha,cls:'diff-flat'},
+    {val:(difAnt>=0?'+':'')+difAnt.toFixed(3),lbl:'vs. imagen anterior',sub:anterior.fecha,cls:difClaseNdvi(difAnt)},
+    {val:(difProm>=0?'+':'')+difProm.toFixed(3),lbl:'vs. promedio',sub:`media ${promedio.toFixed(3)}`,cls:difClaseNdvi(difProm)},
+    {val:serie.length,lbl:'imágenes válidas',sub:`nubes ≤${nubes}%`,cls:'diff-flat'}
+  ]);
+  dibujarGraficoNdviLinea(l,serie,promedio);
+  document.getElementById('ndviExportBtn').style.display='block';
+}
+async function consultarNdviTodos(dias,nubes,status){
+  const resultados=[];
+  for(let i=0;i<LOTES.length;i++){
+    const l=LOTES[i]; status.textContent=`⏳ Consultando lote ${i+1}/${LOTES.length}: ${l.nombre}...`;
+    try{
+      const serie=await consultarSerieLoteNdvi(l.id,dias,nubes);
+      if(serie.length>=2){ const actual=serie[serie.length-1], anterior=serie[serie.length-2]; resultados.push({id:l.id,nombre:l.nombre,actual:actual.ndvi,fecha:actual.fecha,dif:actual.ndvi-anterior.ndvi}); }
+      else resultados.push({id:l.id,nombre:l.nombre,actual:null,fecha:'—',dif:null});
+    }catch(e){ resultados.push({id:l.id,nombre:l.nombre,actual:null,fecha:'error',dif:null}); }
+  }
+  ultimaSerieNdvi={tipo:'todos',resultados};
+  renderTablaNdviTodos(resultados);
+  dibujarGraficoNdviBarras(resultados);
+  document.getElementById('ndviExportBtn').style.display='block';
+}
+function renderTablaNdviTodos(res){
+  const c=document.getElementById('ndviDiffCards'); c.style.gridTemplateColumns='1fr';
+  const rows=res.map(r=>{ const dv=r.dif==null?'—':(r.dif>=0?'+':'')+r.dif.toFixed(3); const cls=r.dif==null?'diff-flat':difClaseNdvi(r.dif); const arrow=r.dif==null?'':r.dif>0.01?'▲':r.dif<-0.01?'▼':'▬'; return `<tr><td><b>L${r.id}</b><br><span class="muted">${r.nombre}</span></td><td>${r.actual==null?'—':r.actual.toFixed(3)}</td><td class="${cls}">${arrow} ${dv}</td><td style="font-size:10px;color:var(--gris)">${r.fecha}</td></tr>`; }).join('');
+  c.innerHTML=`<table class="ndvi-table"><tr><th>Lote</th><th>NDVI actual</th><th>Δ vs. anterior</th><th>Fecha</th></tr>${rows}</table>`;
+}
+function dibujarGraficoNdviLinea(lote,serie,promedio){
+  document.getElementById('ndviChartCard').style.display='block';
+  document.getElementById('ndviChartTitle').textContent='Evolución NDVI — '+lote.nombre;
+  const ctx=document.getElementById('ndviChart'); if(ndviChartObj) ndviChartObj.destroy();
+  ndviChartObj=new Chart(ctx,{type:'line',data:{labels:serie.map(p=>p.fecha),datasets:[
+    {label:'NDVI medio',data:serie.map(p=>p.ndvi),borderColor:'#1a9850',backgroundColor:'rgba(26,152,80,.12)',fill:true,tension:.3,pointRadius:3,pointBackgroundColor:'#1a9850'},
+    {label:'Promedio período',data:serie.map(()=>promedio),borderColor:'#d46b08',borderDash:[6,4],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{suggestedMin:0,suggestedMax:1,title:{display:true,text:'NDVI'}}},plugins:{legend:{labels:{font:{size:11}}}}}});
+}
+function dibujarGraficoNdviBarras(res){
+  const valid=res.filter(r=>r.dif!=null);
+  document.getElementById('ndviChartCard').style.display='block';
+  document.getElementById('ndviChartTitle').textContent='Diferencial NDVI por lote (actual vs. anterior)';
+  const ctx=document.getElementById('ndviChart'); if(ndviChartObj) ndviChartObj.destroy();
+  ndviChartObj=new Chart(ctx,{type:'bar',data:{labels:valid.map(r=>'L'+r.id),datasets:[{label:'Δ NDVI',data:valid.map(r=>r.dif),backgroundColor:valid.map(r=>r.dif>=0?'rgba(26,152,80,.8)':'rgba(192,57,43,.8)')}]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{title:{display:true,text:'Δ NDVI (actual − anterior)'}}},plugins:{legend:{display:false}}}});
+}
+function exportarNdviCSV(){
+  if(!ultimaSerieNdvi){ showToast('Sin datos NDVI'); return; }
+  let rows;
+  if(ultimaSerieNdvi.tipo==='uno'){
+    rows=[['Lote','Nombre','Fecha','NDVI_medio']];
+    ultimaSerieNdvi.serie.forEach(p=>rows.push([ultimaSerieNdvi.id,`"${ultimaSerieNdvi.nombre}"`,p.fecha,p.ndvi.toFixed(4)]));
+  } else {
+    rows=[['Lote','Nombre','NDVI_actual','Fecha','Diferencial_vs_anterior']];
+    ultimaSerieNdvi.resultados.forEach(r=>rows.push([r.id,`"${r.nombre}"`,r.actual==null?'':r.actual.toFixed(4),r.fecha,r.dif==null?'':r.dif.toFixed(4)]));
+  }
+  downloadText('ndvi_lotes_secano_'+todayStr()+'.csv','\uFEFF'+rows.map(r=>r.join(',')).join('\n'),'text/csv;charset=utf-8;');
+}
+
+window.addEventListener('DOMContentLoaded',()=>{ populateSelects(); ndviTemporalInit(); ndviInitUI(); renderLista(); renderResumen(); const first=LOTES[0]?.id; if(first){ document.getElementById('datosLote').value=first; cargarDatosLote(); document.getElementById('balLote').value=first; cargarInfoBalance(); document.getElementById('pronLote').value=first; } });
+</script>
+</body>
+</html>
